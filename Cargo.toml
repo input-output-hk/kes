@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "kes-mmm-sumed25519",
+    "kes-mmm-sumed25519-c",
+]
