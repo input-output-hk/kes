@@ -1,13 +1,29 @@
 use kes_mmm_sumed25519::sumed25519 as kes;
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 
-const DEPTH: kes::Depth = kes::Depth(OUROBOROS_KES_TOTAL_UPDATE_LOG as usize);
+const DEPTH: kes::Depth = kes::Depth(KES_MMM_SUMED25519_TOTAL_UPDATE_LOG as usize);
 
-pub const OUROBOROS_KES_TOTAL_UPDATE_LOG: u32 = 12;
-pub const OUROBOROS_KES_TOTAL_UPDATE: usize = 4096;
+pub const KES_MMM_SUMED25519_TOTAL_UPDATE_LOG: u32 = 12;
+pub const KES_MMM_SUMED25519_TOTAL_UPDATE: usize = 4096;
+
+pub const KES_MMM_SUMED25519_SECRET_KEY_SIZE: usize = 836;
+pub const KES_MMM_SUMED25519_PUBLIC_KEY_SIZE: usize = 32;
+pub const KES_MMM_SUMED25519_SIGNATURE_SIZE: usize = 484;
+
+macro_rules! assert_static_eq {
+    ($sz1:expr, $sz2:expr) => {
+        const _: fn() = || {
+            let _ = core::mem::transmute::<[u8; $sz1], [u8; $sz2]>;
+        };
+    };
+}
+
+assert_static_eq!(KES_MMM_SUMED25519_SECRET_KEY_SIZE, kes::minimum_secretkey_size(DEPTH));
+assert_static_eq!(KES_MMM_SUMED25519_PUBLIC_KEY_SIZE, kes::PUBLIC_KEY_SIZE);
+assert_static_eq!(KES_MMM_SUMED25519_SIGNATURE_SIZE, kes::signature_size(DEPTH));
 
 #[no_mangle]
-pub extern "C" fn ouroboros_kes_secretkey_generate(
+pub extern "C" fn kes_mmm_sumed25519_secretkey_generate(
     seed: *const u8,
     secret_ptr: *mut u8,
     public_ptr: *mut u8,
@@ -28,7 +44,7 @@ pub extern "C" fn ouroboros_kes_secretkey_generate(
 }
 
 #[no_mangle]
-pub extern "C" fn ouroboros_kes_secretkey_sign(
+pub extern "C" fn kes_mmm_sumed25519_secretkey_sign(
     secret_ptr: *const u8,
     message_ptr: *const u8,
     message_size: usize,
@@ -45,7 +61,7 @@ pub extern "C" fn ouroboros_kes_secretkey_sign(
 }
 
 #[no_mangle]
-pub extern "C" fn ouroboros_kes_secretkey_t(secret_ptr: *const u8) -> u32 {
+pub extern "C" fn kes_mmm_sumed25519_secretkey_t(secret_ptr: *const u8) -> u32 {
     let in_sec = unsafe { from_raw_parts(secret_ptr, kes::minimum_secretkey_size(DEPTH)) };
     let sk = kes::SecretKey::from_bytes(DEPTH, in_sec).unwrap();
     let t = sk.t() as u32;
@@ -53,7 +69,7 @@ pub extern "C" fn ouroboros_kes_secretkey_t(secret_ptr: *const u8) -> u32 {
 }
 
 #[no_mangle]
-pub extern "C" fn ouroboros_kes_secretkey_update(secret_ptr: *mut u8) {
+pub extern "C" fn kes_mmm_sumed25519_secretkey_update(secret_ptr: *mut u8) {
     let io_sec = unsafe { from_raw_parts_mut(secret_ptr, kes::minimum_secretkey_size(DEPTH)) };
     let mut sk = kes::SecretKey::from_bytes(DEPTH, io_sec).unwrap();
     kes::update(&mut sk).unwrap();
@@ -61,7 +77,7 @@ pub extern "C" fn ouroboros_kes_secretkey_update(secret_ptr: *mut u8) {
 }
 
 #[no_mangle]
-pub extern "C" fn ouroboros_kes_publickey_verify(
+pub extern "C" fn kes_mmm_sumed25519_publickey_verify(
     public_ptr: *const u8,
     message_ptr: *const u8,
     message_size: usize,
