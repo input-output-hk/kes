@@ -29,7 +29,7 @@ pub extern "C" fn kes_mmm_sumed25519_secretkey_generate(
     public_ptr: *mut u8,
 ) {
     let in_seed = unsafe { from_raw_parts(seed, kes::Seed::SIZE) };
-    let out_sec = unsafe { from_raw_parts_mut(secret_ptr, kes::minimum_secretkey_size(DEPTH)) };
+    let out_sec = unsafe { from_raw_parts_mut(secret_ptr, kes::maximum_secretkey_size(DEPTH)) };
     let out_pub = unsafe { from_raw_parts_mut(public_ptr, kes::PUBLIC_KEY_SIZE) };
 
     let mut seed_bytes = [0u8; kes::Seed::SIZE];
@@ -50,7 +50,7 @@ pub extern "C" fn kes_mmm_sumed25519_secretkey_sign(
     message_size: usize,
     signature_ptr: *mut u8,
 ) {
-    let in_sec = unsafe { from_raw_parts(secret_ptr, kes::minimum_secretkey_size(DEPTH)) };
+    let in_sec = unsafe { from_raw_parts(secret_ptr, kes::maximum_secretkey_size(DEPTH)) };
     let in_msg = unsafe { from_raw_parts(message_ptr, message_size) };
     let out_sig = unsafe { from_raw_parts_mut(signature_ptr, kes::signature_size(DEPTH)) };
 
@@ -62,7 +62,7 @@ pub extern "C" fn kes_mmm_sumed25519_secretkey_sign(
 
 #[no_mangle]
 pub extern "C" fn kes_mmm_sumed25519_secretkey_t(secret_ptr: *const u8) -> u32 {
-    let in_sec = unsafe { from_raw_parts(secret_ptr, kes::minimum_secretkey_size(DEPTH)) };
+    let in_sec = unsafe { from_raw_parts(secret_ptr, kes::maximum_secretkey_size(DEPTH)) };
     let sk = kes::SecretKey::from_bytes(DEPTH, in_sec).unwrap();
     let t = sk.t() as u32;
     t
@@ -70,7 +70,7 @@ pub extern "C" fn kes_mmm_sumed25519_secretkey_t(secret_ptr: *const u8) -> u32 {
 
 #[no_mangle]
 pub extern "C" fn kes_mmm_sumed25519_secretkey_update(secret_ptr: *mut u8) {
-    let io_sec = unsafe { from_raw_parts_mut(secret_ptr, kes::minimum_secretkey_size(DEPTH)) };
+    let io_sec = unsafe { from_raw_parts_mut(secret_ptr, kes::maximum_secretkey_size(DEPTH)) };
     let mut sk = kes::SecretKey::from_bytes(DEPTH, io_sec).unwrap();
     kes::update(&mut sk).unwrap();
     io_sec.copy_from_slice(sk.as_ref());
