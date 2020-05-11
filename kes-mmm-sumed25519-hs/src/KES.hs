@@ -11,7 +11,7 @@ import Data.Word
 import Foreign.Ptr
 
 pattern SIGNATURE_SIZE = 484
-pattern SECRET_KEY_SIZE = 836
+pattern SECRET_KEY_SIZE = 1220
 pattern PUBLIC_KEY_SIZE = 32
 
 foreign import ccall "kes_mmm_sumed25519_publickey_verify" verify

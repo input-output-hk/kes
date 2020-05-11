@@ -17,32 +17,32 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define OUROBOROS_KES_PUBLIC_KEY_SIZE 32
+#define KES_MMM_SUMED25519_PUBLIC_KEY_SIZE 32
 
-#define OUROBOROS_KES_SECRET_KEY_SIZE 836
+#define KES_MMM_SUMED25519_SECRET_KEY_SIZE 1220
 
-#define OUROBOROS_KES_SIGNATURE_SIZE 484
+#define KES_MMM_SUMED25519_SIGNATURE_SIZE 484
 
-#define OUROBOROS_KES_TOTAL_UPDATE 4096
+#define KES_MMM_SUMED25519_TOTAL_UPDATE 4096
 
-#define OUROBOROS_KES_TOTAL_UPDATE_LOG 12
+#define KES_MMM_SUMED25519_TOTAL_UPDATE_LOG 12
 
-bool ouroboros_kes_publickey_verify(const uint8_t *public_ptr,
-                                    const uint8_t *message_ptr,
-                                    uintptr_t message_size,
-                                    const uint8_t *signature_ptr);
+bool kes_mmm_sumed25519_publickey_verify(const uint8_t *public_ptr,
+                                         const uint8_t *message_ptr,
+                                         uintptr_t message_size,
+                                         const uint8_t *signature_ptr);
 
-void ouroboros_kes_secretkey_generate(const uint8_t *seed,
-                                      uint8_t *secret_ptr,
-                                      uint8_t *public_ptr);
+void kes_mmm_sumed25519_secretkey_generate(const uint8_t *seed,
+                                           uint8_t *secret_ptr,
+                                           uint8_t *public_ptr);
 
-void ouroboros_kes_secretkey_sign(const uint8_t *secret_ptr,
-                                  const uint8_t *message_ptr,
-                                  uintptr_t message_size,
-                                  uint8_t *signature_ptr);
+void kes_mmm_sumed25519_secretkey_sign(const uint8_t *secret_ptr,
+                                       const uint8_t *message_ptr,
+                                       uintptr_t message_size,
+                                       uint8_t *signature_ptr);
 
-uint32_t ouroboros_kes_secretkey_t(const uint8_t *secret_ptr);
+uint32_t kes_mmm_sumed25519_secretkey_t(const uint8_t *secret_ptr);
 
-void ouroboros_kes_secretkey_update(uint8_t *secret_ptr);
+void kes_mmm_sumed25519_secretkey_update(uint8_t *secret_ptr);
 
 #endif /* KES_SUMED25519_LIBC_ */

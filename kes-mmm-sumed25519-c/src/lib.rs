@@ -6,7 +6,7 @@ const DEPTH: kes::Depth = kes::Depth(KES_MMM_SUMED25519_TOTAL_UPDATE_LOG as usiz
 pub const KES_MMM_SUMED25519_TOTAL_UPDATE_LOG: u32 = 12;
 pub const KES_MMM_SUMED25519_TOTAL_UPDATE: usize = 4096;
 
-pub const KES_MMM_SUMED25519_SECRET_KEY_SIZE: usize = 836;
+pub const KES_MMM_SUMED25519_SECRET_KEY_SIZE: usize = 1220;
 pub const KES_MMM_SUMED25519_PUBLIC_KEY_SIZE: usize = 32;
 pub const KES_MMM_SUMED25519_SIGNATURE_SIZE: usize = 484;
 
@@ -18,7 +18,7 @@ macro_rules! assert_static_eq {
     };
 }
 
-assert_static_eq!(KES_MMM_SUMED25519_SECRET_KEY_SIZE, kes::minimum_secretkey_size(DEPTH));
+assert_static_eq!(KES_MMM_SUMED25519_SECRET_KEY_SIZE, kes::maximum_secretkey_size(DEPTH));
 assert_static_eq!(KES_MMM_SUMED25519_PUBLIC_KEY_SIZE, kes::PUBLIC_KEY_SIZE);
 assert_static_eq!(KES_MMM_SUMED25519_SIGNATURE_SIZE, kes::signature_size(DEPTH));
 
