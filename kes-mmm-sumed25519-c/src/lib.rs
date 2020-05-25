@@ -18,9 +18,15 @@ macro_rules! assert_static_eq {
     };
 }
 
-assert_static_eq!(KES_MMM_SUMED25519_SECRET_KEY_SIZE, kes::maximum_secretkey_size(DEPTH));
+assert_static_eq!(
+    KES_MMM_SUMED25519_SECRET_KEY_SIZE,
+    kes::maximum_secretkey_size(DEPTH)
+);
 assert_static_eq!(KES_MMM_SUMED25519_PUBLIC_KEY_SIZE, kes::PUBLIC_KEY_SIZE);
-assert_static_eq!(KES_MMM_SUMED25519_SIGNATURE_SIZE, kes::signature_size(DEPTH));
+assert_static_eq!(
+    KES_MMM_SUMED25519_SIGNATURE_SIZE,
+    kes::signature_size(DEPTH)
+);
 
 #[no_mangle]
 pub extern "C" fn kes_mmm_sumed25519_secretkey_generate(
@@ -66,6 +72,18 @@ pub extern "C" fn kes_mmm_sumed25519_secretkey_t(secret_ptr: *const u8) -> u32 {
     let sk = kes::SecretKey::from_bytes(DEPTH, in_sec).unwrap();
     let t = sk.t() as u32;
     t
+}
+
+#[no_mangle]
+pub extern "C" fn kes_mmm_sumed25519_secretkey_compute_public(
+    secret_ptr: *const u8,
+    public_ptr: *mut u8,
+) {
+    let in_sec = unsafe { from_raw_parts(secret_ptr, kes::maximum_secretkey_size(DEPTH)) };
+    let out_pub = unsafe { from_raw_parts_mut(public_ptr, kes::PUBLIC_KEY_SIZE) };
+    let sk = kes::SecretKey::from_bytes(DEPTH, in_sec).unwrap();
+    let publickey = sk.compute_public();
+    out_pub.copy_from_slice(publickey.as_ref());
 }
 
 #[no_mangle]

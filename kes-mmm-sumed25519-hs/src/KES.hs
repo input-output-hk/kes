@@ -34,6 +34,11 @@ foreign import ccall "kes_mmm_sumed25519_secretkey_sign" sign
     -> Ptr Word8 -- ^ signature buffer
     -> IO ()
 
+foreign import ccall "kes_mmm_sumed25519_secretkey_compute_public" compute_public
+    :: Ptr Word8 -- ^ secret bytes pointer
+    -> Ptr Word8 -- ^ public bytes pointer
+    -> IO ()
+
 foreign import ccall "kes_mmm_sumed25519_secretkey_t" t
     :: Ptr Word8 -- ^ secret bytes pointer
     -> Word32
