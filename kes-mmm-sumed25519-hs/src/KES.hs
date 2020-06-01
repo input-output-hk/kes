@@ -5,6 +5,10 @@ module KES
     , sign
     , t
     , update
+    , compute_public
+    , pattern SIGNATURE_SIZE
+    , pattern SECRET_KEY_SIZE
+    , pattern PUBLIC_KEY_SIZE
     ) where
 
 import Data.Word
@@ -17,7 +21,7 @@ pattern PUBLIC_KEY_SIZE = 32
 foreign import ccall "kes_mmm_sumed25519_publickey_verify" verify
     :: Ptr Word8 -- ^ public key bytes pointer
     -> Ptr Word8 -- ^ message bytes pointer
-    -> IntPtr -- ^ message size 
+    -> IntPtr -- ^ message size
     -> Ptr Word8 -- ^ signature bytes pointer
     -> Bool
 
