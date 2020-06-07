@@ -27,6 +27,8 @@
 
 #define KES_MMM_SUMED25519_TOTAL_UPDATE_LOG 12
 
+extern const str *KES_MMM_SUMED25519_VERSION;
+
 bool kes_mmm_sumed25519_publickey_verify(const uint8_t *public_ptr,
                                          const uint8_t *message_ptr,
                                          uintptr_t message_size,

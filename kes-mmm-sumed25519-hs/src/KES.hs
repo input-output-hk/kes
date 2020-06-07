@@ -13,10 +13,14 @@ module KES
 
 import Data.Word
 import Foreign.Ptr
+import Foreign.C.Types (CChar)
 
 pattern SIGNATURE_SIZE = 484
 pattern SECRET_KEY_SIZE = 1220
 pattern PUBLIC_KEY_SIZE = 32
+
+foreign import ccall "kes_mmm_sumed25519_version" version
+    :: Ptr CChar
 
 foreign import ccall "kes_mmm_sumed25519_publickey_verify" verify
     :: Ptr Word8 -- ^ public key bytes pointer

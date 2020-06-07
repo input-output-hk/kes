@@ -14,5 +14,12 @@ extern crate quickcheck_macros;
 mod common;
 pub mod sumed25519;
 
+pub mod version {
+    pub const FULL: &str = env!("FULL_VERSION");
+    pub const SIMPLE: &str = env!("SIMPLE_VERSION");
+    pub const SOURCE: &str = env!("SOURCE_VERSION");
+    pub const PKG: &str = env!("CARGO_PKG_VERSION");
+}
+
 #[cfg(test)]
 mod sumrec;

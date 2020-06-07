@@ -17,3 +17,6 @@ sha2 = "0.8"
 [dev-dependencies]
 quickcheck = "0.9"
 quickcheck_macros = "0.9"
+
+[build-dependencies]
+versionisator = "1.0.2"

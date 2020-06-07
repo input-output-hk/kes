@@ -10,6 +10,12 @@ pub const KES_MMM_SUMED25519_SECRET_KEY_SIZE: usize = 1220;
 pub const KES_MMM_SUMED25519_PUBLIC_KEY_SIZE: usize = 32;
 pub const KES_MMM_SUMED25519_SIGNATURE_SIZE: usize = 484;
 
+#[no_mangle]
+pub static KES_MMM_SUMED25519_VERSION: &str = kes_mmm_sumed25519::version::PKG;
+
+#[no_mangle]
+pub static KES_MMM_SUMED25519_GIT_VERSION: &str = kes_mmm_sumed25519::version::SOURCE;
+
 macro_rules! assert_static_eq {
     ($sz1:expr, $sz2:expr) => {
         const _: fn() = || {
