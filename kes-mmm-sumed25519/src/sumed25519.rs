@@ -3,13 +3,15 @@
 use super::common;
 pub use super::common::{Depth, Seed};
 use ed25519_dalek as ed25519;
+use ed25519_dalek::Verifier;
+use ed25519_dalek::Signer;
 use ed25519_dalek::Digest;
-use rand_core::{CryptoRng, RngCore};
+use rand::{CryptoRng, RngCore};
 //use std::hash::Hash;
 
 #[derive(Debug, Clone)]
 pub enum Error {
-    Ed25519SignatureError(ed25519::SignatureError),
+    Ed25519SignatureError(String),
     InvalidSecretKeySize(usize),
     InvalidPublicKeySize(usize),
     InvalidSignatureSize(usize),
@@ -20,7 +22,7 @@ pub enum Error {
 
 impl From<ed25519::SignatureError> for Error {
     fn from(sig: ed25519::SignatureError) -> Error {
-        Error::Ed25519SignatureError(sig)
+        Error::Ed25519SignatureError(format!("{:?}", sig))
     }
 }
 
@@ -506,8 +508,9 @@ impl Signature {
     }
 
     fn sigma(&self) -> ed25519::Signature {
-        let bytes = &self.0[Self::SIGMA_OFFSET..Self::PK_OFFSET];
-        ed25519::Signature::from_bytes(bytes).expect("internal error: signature invalid")
+        let mut bytes = [0u8; SIGMA_SIZE];
+        bytes.copy_from_slice(&self.0[Self::SIGMA_OFFSET..Self::PK_OFFSET]);
+        ed25519::Signature::new(bytes)
     }
 
     fn pk(&self) -> ed25519::PublicKey {
@@ -575,12 +578,13 @@ impl Signature {
             return Err(Error::InvalidSignatureCount(t, depth));
         }
 
-        let sigma_slice = &bytes[Self::SIGMA_OFFSET..Self::SIGMA_OFFSET + SIGMA_SIZE];
+        let mut sigma_slice = [0u8; SIGMA_SIZE];
+        sigma_slice.copy_from_slice(&bytes[Self::SIGMA_OFFSET..Self::SIGMA_OFFSET + SIGMA_SIZE]);
         let pk_slice = &bytes[Self::PK_OFFSET..Self::PK_OFFSET + INDIVIDUAL_PUBLIC_SIZE];
 
         // verify sigma and pk format, no need to verify pks
         let _ = ed25519::PublicKey::from_bytes(pk_slice)?;
-        let _ = ed25519::Signature::from_bytes(sigma_slice)?;
+        let _ = ed25519::Signature::new(sigma_slice);
 
         let mut out = Vec::with_capacity(bytes.len());
         out.extend_from_slice(bytes);
@@ -592,10 +596,10 @@ impl Signature {
 pub fn hash(pk1: &PublicKey, pk2: &PublicKey) -> PublicKey {
     let mut out = [0u8; 32];
     let mut h = sha2::Sha256::default();
-    h.input(&pk1.0);
-    h.input(&pk2.0);
+    h.update(&pk1.0);
+    h.update(&pk2.0);
 
-    let o = h.result();
+    let o = h.finalize();
     out.copy_from_slice(&o);
     PublicKey(out)
 }
