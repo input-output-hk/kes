@@ -1,49 +1,50 @@
 //! Implementation of MMM's SUM algorithm
-
 use super::common;
 pub use super::common::{Depth, Seed};
+use super::errors::Error;
 use ed25519_dalek as ed25519;
-use ed25519_dalek::Verifier;
-use ed25519_dalek::Signer;
 use ed25519_dalek::Digest;
+use ed25519_dalek::Signer;
+use ed25519_dalek::Verifier;
 use rand::{CryptoRng, RngCore};
-//use std::hash::Hash;
 
-#[derive(Debug, Clone)]
-pub enum Error {
-    Ed25519SignatureError(String),
-    InvalidSecretKeySize(usize),
-    InvalidPublicKeySize(usize),
-    InvalidSignatureSize(usize),
-    InvalidSignatureCount(usize, Depth),
-    DataInZeroArea,
-    KeyCannotBeUpdatedMore,
-}
-
-impl From<ed25519::SignatureError> for Error {
-    fn from(sig: ed25519::SignatureError) -> Error {
-        Error::Ed25519SignatureError(format!("{:?}", sig))
-    }
-}
-
+/// todo: unclear what this is
 const USE_TRUNCATE: bool = false;
 
+/// Time period
 type PeriodSerialized = u32;
+/// Time period size in bytes
 const PERIOD_SERIALIZE_SIZE: usize = 4;
 
-const INDIVIDUAL_SECRET_SIZE: usize = 32; // ED25519 secret key size
-const INDIVIDUAL_PUBLIC_SIZE: usize = 32; // ED25519 public key size
-const SIGMA_SIZE: usize = 64; // ED25519 signature size
+/// ED25519 secret key size
+const INDIVIDUAL_SECRET_SIZE: usize = 32;
+/// ED25519 public key size
+const INDIVIDUAL_PUBLIC_SIZE: usize = 32;
+/// ED25519 signature size
+const SIGMA_SIZE: usize = 64;
 
+/// KES public key size (which equals the size of the output of the Hash).
 pub const PUBLIC_KEY_SIZE: usize = 32;
 
-/// Secret Key in the binary tree sum composition of the ed25519 scheme
+/// Secret Key in the binary tree sum composition of the ed25519 scheme. As described in Figure 3,
+/// a `SecretKey` is constituted by a `SecretKey` of depth = `Depth` - 1, the right part of the
+/// extended seed, and two `PublicKeys`.
 ///
-/// Serialization:
+/// By representing the `SecretKey` with a vector, the caller of the function can map the content
+/// of the key to erasable buffer. This allows the key to be mutated in place on filesystem with
+/// reasonable guarantee, and therefore, delete the previous keys and/or seeds.
+///
+/// In particular, the format in which we represent the secret key within the vector is
+/// as follows:
+///
 /// * period
 /// * keypair : ED25519 keypair
 /// * pks : depth size of left and right public keys
 /// * rs : Stack of right seed for updates
+///
+/// The reason for having the seeds at the end, is because during the `update` call, a seed
+/// is deleted. By having them at the end, this does not affect the positioning of the rest of
+/// elements of the key.
 #[derive(Clone)]
 pub struct SecretKey {
     depth: Depth,
@@ -56,13 +57,17 @@ impl AsRef<[u8]> for SecretKey {
     }
 }
 
-// doesn't contains the seeds
+/// const function that computes the minimum size of `SecretKey`. It leaves aside the seeds. This
+/// represents the smalles possible key size, where all seeds have been deleted. Note that when a
+/// key is updated, the seed used to generate the latest version of the key is deleted.
 pub const fn minimum_secretkey_size(depth: Depth) -> usize {
     PERIOD_SERIALIZE_SIZE
         + INDIVIDUAL_SECRET_SIZE + INDIVIDUAL_PUBLIC_SIZE // keypair
         + depth.0 * 2 * PUBLIC_KEY_SIZE
 }
 
+/// const function that computest the maximum size of `SecretKey`. This size consists of all seeds,
+/// i.e., it represents the initial size of the `SecretKey`.
 pub const fn maximum_secretkey_size(depth: Depth) -> usize {
     PERIOD_SERIALIZE_SIZE
         + INDIVIDUAL_SECRET_SIZE + INDIVIDUAL_PUBLIC_SIZE // keypair
@@ -70,15 +75,22 @@ pub const fn maximum_secretkey_size(depth: Depth) -> usize {
         + depth.0 * Seed::SIZE
 }
 
+/// Structure representing the `PublicKey`s used to compute the merkle tree root.
 pub struct MerklePublicKeys<'a>(&'a [u8]);
 
 impl<'a> MerklePublicKeys<'a> {
+    /// Generate a new `MerklePublicKeys` structure given an array of bytes.
+    ///
+    /// # Panics
+    /// Fails when the length of the data is not divisible by `PUBLIC_KEY_SIZE * 2`.
     pub fn new(data: &'a [u8]) -> Self {
         assert_eq!(data.len() % (PUBLIC_KEY_SIZE * 2), 0);
         MerklePublicKeys(data)
     }
 }
 
+/// Iterator that removes and returns the next pair of keys  of `MerklePublicKeys`. It returns them
+/// as `PublicKey` pairs instead of slices.
 impl<'a> Iterator for MerklePublicKeys<'a> {
     type Item = (PublicKey, PublicKey);
 
@@ -96,6 +108,8 @@ impl<'a> Iterator for MerklePublicKeys<'a> {
     }
 }
 
+/// Iterator that removes and returns the last pair of keys  of `MerklePublicKeys`. It returns them
+/// as `PublicKey` pairs instead of slices.
 impl<'a> DoubleEndedIterator for MerklePublicKeys<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.0.is_empty() {
@@ -120,8 +134,11 @@ impl<'a> ExactSizeIterator for MerklePublicKeys<'a> {
     }
 }
 
+/// Structure representing the `Seed`s used to compute the merkle tree root. Represented as slices.
 pub struct Seeds<'a>(&'a [u8]);
 
+/// Iterator that removes and returns the next pair of keys  of `Seed`. It returns them
+/// as `Seed` instead of slices.
 impl<'a> Iterator for Seeds<'a> {
     type Item = Seed;
 
@@ -136,51 +153,68 @@ impl<'a> Iterator for Seeds<'a> {
     }
 }
 
+/// Iterator that removes and returns the last pair of keys  of `Seed`. It returns them
+/// as `Seed` instead of slices.
 impl<'a> ExactSizeIterator for Seeds<'a> {
     fn len(&self) -> usize {
         self.0.len() / Seed::SIZE
     }
 }
 
+/// Returns the different between the number of ones in the binary representation of depth minus the
+/// number of ones in the binary representation of t.
 fn rs_from_period(depth: Depth, t: usize) -> u32 {
     let bits = (depth.total() - 1).count_ones();
     bits - t.count_ones()
 }
 
 impl SecretKey {
+    /// Position of the period in `Self::data`.
     const T_OFFSET: usize = 0;
+    /// Position of the keypair in `Self::data`.
     const KEYPAIR_OFFSET: usize = Self::T_OFFSET + PERIOD_SERIALIZE_SIZE;
+    /// Position of the public keys in `Self::data`.
     const MERKLE_PKS_OFFSET: usize =
         Self::KEYPAIR_OFFSET + INDIVIDUAL_SECRET_SIZE + INDIVIDUAL_PUBLIC_SIZE;
+    /// position of the seeds in `Self::data`.
     const fn seed_offset(depth: Depth) -> usize {
         Self::MERKLE_PKS_OFFSET + depth.0 * PUBLIC_KEY_SIZE * 2
     }
 
+    /// Position of the `ith` seed within `Self::data`.
     const fn seed_offset_index(depth: Depth, i: usize) -> usize {
         Self::seed_offset(depth) + i * Seed::SIZE
     }
 
     // --------------------------------------
     // accessors
+    /// Get the period of the current secret key
     pub fn t(&self) -> usize {
         let mut t = [0u8; PERIOD_SERIALIZE_SIZE];
         t.copy_from_slice(&self.data[0..PERIOD_SERIALIZE_SIZE]);
         PeriodSerialized::from_le_bytes(t) as usize
     }
 
+    /// Get the ed25519 signing key associated with `Self`.
+    ///
+    /// # Panics
+    /// Function fails if the bytes in the position of the `ed25519::Keypair` do not represent
+    /// a valid key.
     pub fn sk(&self) -> ed25519::Keypair {
         let bytes = &self.data[Self::KEYPAIR_OFFSET..Self::MERKLE_PKS_OFFSET];
-        ed25519::Keypair::from_bytes(&bytes).expect("internal error: keypair invalid")
+        ed25519::Keypair::from_bytes(bytes).expect("internal error: keypair invalid")
     }
 
     #[doc(hidden)]
-    pub fn merkle_pks(&self) -> MerklePublicKeys {
+    // Get the public keys
+    pub fn merkle_pks(&self) -> MerklePublicKeys<'_> {
         let bytes = &self.data[Self::MERKLE_PKS_OFFSET..Self::seed_offset(self.depth)];
         MerklePublicKeys::new(bytes)
     }
 
     #[doc(hidden)]
-    pub fn rs(&self) -> Seeds {
+    // Get the seeds
+    pub fn rs(&self) -> Seeds<'_> {
         let start = Self::seed_offset(self.depth);
         let end = start + (self.rs_len() as usize * Seed::SIZE);
         let bytes = &self.data[start..end];
@@ -192,10 +226,12 @@ impl SecretKey {
     }
 
     #[doc(hidden)]
+    // todo: not sure I understand this function...
     pub fn rs_len(&self) -> u32 {
         rs_from_period(self.depth(), self.t())
     }
 
+    // --setters
     fn set_t(&mut self, t: usize) {
         let t_bytes = PeriodSerialized::to_le_bytes(t as PeriodSerialized);
         let out = &mut self.data[0..PERIOD_SERIALIZE_SIZE];
@@ -216,6 +252,8 @@ impl SecretKey {
         bytes[startr..end].copy_from_slice(pks.1.as_ref());
     }
 
+    // --
+    // Get then `n`th `PublicKey` pair
     fn get_merkle_pks(&self, n: usize) -> (PublicKey, PublicKey) {
         let bytes = &self.data[Self::MERKLE_PKS_OFFSET..Self::seed_offset(self.depth)];
         let startl = n * PUBLIC_KEY_SIZE * 2;
@@ -229,6 +267,8 @@ impl SecretKey {
         (PublicKey(datl), PublicKey(datr))
     }
 
+    /// Compute the master public key going through all public keys.
+    // todo: wouldn't it be sufficient to simply hash the top two?
     pub fn compute_public(&self) -> PublicKey {
         let t = self.t();
         let mut got = PublicKey::from_ed25519_publickey(&self.sk().public);
@@ -243,8 +283,8 @@ impl SecretKey {
         got
     }
 
-    // --------------------------------------
-
+    /// Create a secret key for time period `t`, given a ed25519 keypair, an array of public key
+    /// pairs, and an array of `Seed`s.
     fn create(
         t: usize,
         keypair: ed25519::Keypair,
@@ -252,20 +292,20 @@ impl SecretKey {
         rs: &[Seed],
     ) -> Self {
         let depth = Depth(pks.len());
-        let mut out = Vec::with_capacity(minimum_secretkey_size(depth) + rs.len() * Seed::SIZE);
+        let mut out = Vec::with_capacity(maximum_secretkey_size(depth));
 
         let t_bytes = PeriodSerialized::to_le_bytes(t as PeriodSerialized);
         out.extend_from_slice(&t_bytes);
-        assert_eq!(out.len(), 4);
+        assert_eq!(out.len(), Self::KEYPAIR_OFFSET);
         out.extend_from_slice(&keypair.to_bytes());
-        assert_eq!(out.len(), 68);
+        assert_eq!(out.len(), Self::MERKLE_PKS_OFFSET);
         for (pkl, pkr) in pks {
             out.extend_from_slice(&pkl.0);
             out.extend_from_slice(&pkr.0);
         }
-        assert_eq!(out.len(), 68 + pks.len() * 64);
+        assert_eq!(out.len(), Self::seed_offset(depth));
         for r in rs {
-            out.extend_from_slice(&r.as_ref());
+            out.extend_from_slice(r.as_ref());
         }
 
         assert_eq!(out.len(), maximum_secretkey_size(depth));
@@ -273,7 +313,7 @@ impl SecretKey {
         SecretKey { depth, data: out }
     }
 
-    // Get the latest seed and drop it from the buffer
+    /// Pop the latest seed and overwrite with zeros its position in the buffer.
     pub fn rs_pop(&mut self) -> Option<Seed> {
         if USE_TRUNCATE {
             let seed_offset = Self::seed_offset(self.depth);
@@ -299,14 +339,15 @@ impl SecretKey {
             } else {
                 let start = Self::seed_offset_index(self.depth, rs_len as usize - 1);
                 let slice = &mut self.data[start..start + Seed::SIZE];
-                let seed = Seed::from_slice(&slice);
+                let seed = Seed::from_slice(slice);
                 slice.copy_from_slice(&[0u8; Seed::SIZE]);
                 Some(seed)
             }
         }
     }
 
-    pub fn rs_extend<'a>(&mut self, seed_offset: usize, rs: Seeds<'a>) {
+    /// ?
+    pub fn rs_extend(&mut self, seed_offset: usize, rs: Seeds<'_>) {
         if USE_TRUNCATE {
             let seed_start = Self::seed_offset(self.depth);
             let extend_start = seed_offset * Seed::SIZE;
@@ -323,25 +364,38 @@ impl SecretKey {
             let diff = expect - current;
             let start = Self::seed_offset_index(self.depth, seed_offset);
             let end = start + diff as usize * Seed::SIZE;
-            self.data[start..end].copy_from_slice(&rs.0)
+            self.data[start..end].copy_from_slice(rs.0)
         }
     }
 
+    /// Returns the depth of the key
     pub fn depth(&self) -> Depth {
         self.depth
     }
+
+    /// Returns whether the key is updatable. A key is updatable if its current period is smaller
+    /// or equal than 2^{self.depth}
     pub fn is_updatable(&self) -> bool {
         self.t() + 1 < self.depth.total()
     }
 
+    /// Returns `Self` from a given array of bytes.
+    ///
+    /// # Error
+    /// If some of this conditions validate:
+    /// * `bytes` input is smaller (or greater) than the minimum (or maximum respectively) accepted
+    /// size of a key of a given depth
+    /// * `bytes` size starting at the `SEED_OFFSET` is not divisible by the `seed` size
+    /// * the `ed25519::Keypair` cannot be generated from the bytes at its corresponding position
+    /// * the period of the input key is greater than that allowed by the depth
+    ///
+    /// the function returns an error.
     pub fn from_bytes(depth: Depth, bytes: &[u8]) -> Result<Self, Error> {
         let minimum_size = Self::seed_offset(depth);
-        // we need at least N bytes, anything under and it's invalid
         if bytes.len() < minimum_size {
             return Err(Error::InvalidSecretKeySize(bytes.len()));
         }
 
-        // check if the remaining length is valid
         let rem = (bytes.len() - minimum_size) % 32;
         if rem > 0 {
             return Err(Error::InvalidSecretKeySize(bytes.len()));
@@ -370,7 +424,6 @@ impl SecretKey {
             }
 
             let keypair_slice = &bytes[Self::KEYPAIR_OFFSET..Self::MERKLE_PKS_OFFSET];
-            // verify sigma and pk format
             let _ = ed25519::Keypair::from_bytes(keypair_slice)?;
 
             let mut tbuf = [0u8; PERIOD_SERIALIZE_SIZE];
@@ -396,19 +449,34 @@ impl SecretKey {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// KES public key, which is represented as an array of bytes. A `PublicKey`is the output
+/// of a SHA256 hash.
 pub struct PublicKey([u8; PUBLIC_KEY_SIZE]);
 
 impl PublicKey {
+    /// Compute a KES `PublicKey` from an ed25519 key. This function convers the ed25519
+    /// key into its byte representation and returns it as `Self`.
     pub fn from_ed25519_publickey(public: &ed25519::PublicKey) -> Self {
         let mut out = [0u8; PUBLIC_KEY_SIZE];
         out.copy_from_slice(public.as_bytes());
         PublicKey(out)
     }
 
+    pub(crate) fn to_ed25519(&self) -> Result<ed25519::PublicKey, Error> {
+        ed25519::PublicKey::from_bytes(self.as_bytes())
+            .or(Err(Error::Ed25519InvalidCompressedFormat))
+    }
+
+    /// Return `Self` as its byte representation.
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
 
+    /// Tries to convert a slice of `bytes` as `Self`.
+    ///
+    /// # Errors
+    /// This function returns an error if the length of `bytes` is not equal to
+    /// `PUBLIC_KEY_SIZE`.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.len() == PUBLIC_KEY_SIZE {
             let mut v = [0u8; PUBLIC_KEY_SIZE];
@@ -433,9 +501,14 @@ impl AsRef<[u8]> for PublicKey {
 /// * sigma : ED25519 individual signature linked to period
 /// * ED25519 public key of this period
 /// * public keys : merkle tree path elements
+/// todo: do we need signatures to be represented as `Vec`? We don't need to handle the memory
+/// safely in this case.
 #[derive(Debug, Clone)]
 pub struct Signature(Vec<u8>);
 
+// todo: can't we unify this structure and that of before?
+/// Structure representing the `PublicKey`s used to compute the merkle tree root in
+/// a signature.
 pub struct MerkleSignaturePublicKeys<'a>(&'a [u8]);
 
 impl<'a> Iterator for MerkleSignaturePublicKeys<'a> {
@@ -473,6 +546,7 @@ impl<'a> ExactSizeIterator for MerkleSignaturePublicKeys<'a> {
     }
 }
 
+/// Return the expected signature size of a signature with the given `depth`.
 pub const fn signature_size(depth: Depth) -> usize {
     PERIOD_SERIALIZE_SIZE + SIGMA_SIZE + INDIVIDUAL_PUBLIC_SIZE + depth.0 * PUBLIC_KEY_SIZE
 }
@@ -484,54 +558,69 @@ impl AsRef<[u8]> for Signature {
 }
 
 impl Signature {
+    /// Position of the period in `Self::data`.
     const T_OFFSET: usize = 0;
+    /// Position of the ed25519 signature in `Self::data`.
     const SIGMA_OFFSET: usize = Self::T_OFFSET + PERIOD_SERIALIZE_SIZE;
+    /// Position of the ed25519 verification key in `Self::data`.
     const PK_OFFSET: usize = Self::SIGMA_OFFSET + SIGMA_SIZE;
+    /// Position of the merkle tree path in `Self::data`.
     const MERKLE_PKS_OFFSET: usize = Self::PK_OFFSET + INDIVIDUAL_PUBLIC_SIZE;
 
+    /// Returns the depth, by computing the length of the merkle tree path.
     pub fn depth(&self) -> Depth {
         Depth(self.merkle_pks().len())
     }
 
     /// Compute the size in bytes of a signature
-    /// currently this is : 100 + 32*depth()
+    /// currently this is : 100 (4 + 64 + 32) + 32*depth()
     pub fn size_bytes(&self) -> usize {
         self.0.len()
     }
 
-    // --------------------------------------
-    // Getter Accessors -- expect valid data
+    /// Return the period associated with the signature
     pub fn t(&self) -> usize {
         let mut t = [0u8; PERIOD_SERIALIZE_SIZE];
         t.copy_from_slice(&self.0[0..PERIOD_SERIALIZE_SIZE]);
         PeriodSerialized::from_le_bytes(t) as usize
     }
 
+    /// Return the ed25519 signature
     fn sigma(&self) -> ed25519::Signature {
         let mut bytes = [0u8; SIGMA_SIZE];
         bytes.copy_from_slice(&self.0[Self::SIGMA_OFFSET..Self::PK_OFFSET]);
         ed25519::Signature::new(bytes)
     }
 
+    /// Return the ed25519 verification key
+    ///
+    /// # Panics
+    /// The function fails if the bytes in the position of the public key do not represent a
+    /// valid point in underlying curve.
     fn pk(&self) -> ed25519::PublicKey {
         let bytes = &self.0[Self::PK_OFFSET..Self::MERKLE_PKS_OFFSET];
         ed25519::PublicKey::from_bytes(bytes).expect("internal error: pk invalid")
     }
 
-    fn merkle_pks(&self) -> MerkleSignaturePublicKeys {
+    /// Return the merkle tree path
+    fn merkle_pks(&self) -> MerkleSignaturePublicKeys<'_> {
         let bytes = &self.0[Self::MERKLE_PKS_OFFSET..];
         MerkleSignaturePublicKeys(bytes)
     }
 
-    // --------------------------------------
-
+    /// Create a signature, given all its components.
     fn create(
         t: usize,
         sigma: ed25519::Signature,
         pk: &ed25519::PublicKey,
         pks: &[PublicKey],
     ) -> Self {
-        let mut out = Vec::with_capacity(96 + PERIOD_SERIALIZE_SIZE + PUBLIC_KEY_SIZE * pks.len());
+        let mut out = Vec::with_capacity(
+            SIGMA_SIZE
+                + INDIVIDUAL_PUBLIC_SIZE
+                + PERIOD_SERIALIZE_SIZE
+                + PUBLIC_KEY_SIZE * pks.len(),
+        );
         let t_bytes = PeriodSerialized::to_le_bytes(t as PeriodSerialized);
         out.extend_from_slice(&t_bytes);
         assert_eq!(out.len(), PERIOD_SERIALIZE_SIZE);
@@ -553,8 +642,18 @@ impl Signature {
         &self.0
     }
 
+    /// Create a `Signature` from the given byte array.
+    ///
+    /// # Error
+    /// The function returns an error if:
+    /// * `bytes.len()` is smaller than the expected size given the `depth`.
+    /// * `bytes` size starting at `Self::MERKLE_PKS_OFFSET` is not divisible by a public key size
+    /// * the number of public keys in `bytes` does not equal the given `depth`.
+    /// * the period in `bytes` is above the threshold allowed by `depth`.
+    /// * the ed25519 public key in `bytes` does not correspond to a valid point in the elliptic
+    ///   curve.
     pub fn from_bytes(depth: Depth, bytes: &[u8]) -> Result<Self, Error> {
-        let minimum_size = 96 + PERIOD_SERIALIZE_SIZE;
+        let minimum_size = SIGMA_SIZE + INDIVIDUAL_PUBLIC_SIZE + PERIOD_SERIALIZE_SIZE;
         // we need at least N bytes, anything under and it's invalid
         if bytes.len() < minimum_size {
             return Err(Error::InvalidSignatureSize(bytes.len()));
@@ -593,6 +692,7 @@ impl Signature {
     }
 }
 
+/// Hash two public keys using SHA256
 pub fn hash(pk1: &PublicKey, pk2: &PublicKey) -> PublicKey {
     let mut out = [0u8; 32];
     let mut h = sha2::Sha256::default();
@@ -604,16 +704,20 @@ pub fn hash(pk1: &PublicKey, pk2: &PublicKey) -> PublicKey {
     PublicKey(out)
 }
 
-// Generate the leftmost parts of generators pushing the right branch
-// and return the leftmost given key pair
-fn generate_leftmost_rs(rs: &mut Vec<Seed>, log_depth: Depth, master: &Seed) -> ed25519::Keypair {
+/// Given a mutable reference of a `Seed` vector, this function writes all seeds generated
+/// throughout the way, and returns the leftmost `ed25519::KeyPair`, i.e. the key with `t=0`
+fn generate_leftmost_rs(
+    rs: &mut Vec<Seed>,
+    log_depth: Depth,
+    master: &Seed,
+) -> (ed25519::Keypair, PublicKey) {
     let mut depth = log_depth;
     let mut r = master.clone();
     loop {
-        let (r0, r1) = common::split_seed(&r);
+        let (r0, r1) = r.split_seed();
         rs.push(r1);
         if depth.0 == 1 {
-            return common::keygen_1(&r0);
+            return common::leaf_keygen(&r0);
         } else {
             r = r0;
         }
@@ -629,22 +733,19 @@ fn generate_leftmost_rs(rs: &mut Vec<Seed>, log_depth: Depth, master: &Seed) -> 
 /// This is faster than using keygen directly
 pub fn pkeygen(log_depth: Depth, master: &Seed) -> PublicKey {
     if log_depth.0 == 0 {
-        let pk = common::keygen_1(master).public;
-        return PublicKey::from_ed25519_publickey(&pk);
+        return common::leaf_keygen(master).1;
     }
     // first r1 is the topmost
     let mut rs = Vec::new();
 
     // generate the leftmost sk, pk, and accumulate all r1
-    let keypair0 = generate_leftmost_rs(&mut rs, log_depth, master);
-    let pk0 = keypair0.public;
+    let (_, mut pk_left) = generate_leftmost_rs(&mut rs, log_depth, master);
 
     let mut depth = Depth(0);
-    let mut pk_left = PublicKey::from_ed25519_publickey(&pk0);
     // append to storage from leaf to root
     for r in rs.iter().rev() {
         let pk_right = if depth.0 == 0 {
-            PublicKey::from_ed25519_publickey(&common::keygen_1(r).public)
+            common::leaf_keygen(r).1
         } else {
             pkeygen(depth, r)
         };
@@ -668,35 +769,34 @@ pub fn generate<T: RngCore + CryptoRng>(mut rng: T, depth: Depth) -> (SecretKey,
 ///
 /// After creation the secret key is updatable 2^log_depth, and contains
 /// the 0th version of the secret key.
-///
-/// log_depth=3 => 8 signing keys
-///
 pub fn keygen(log_depth: Depth, master: &Seed) -> (SecretKey, PublicKey) {
     if log_depth.0 == 0 {
-        let keypair = common::keygen_1(master);
-        let pk = PublicKey::from_ed25519_publickey(&keypair.public);
-        return (SecretKey::create(0, keypair, &[], &[]), pk);
+        let (sk, pk) = common::leaf_keygen(master);
+        return (SecretKey::create(0, sk, &[], &[]), pk);
     }
 
     // first r1 is the topmost
     let mut rs = Vec::new();
 
     // generate the leftmost sk, pk, and accumulate all r1
-    let keypair0 = generate_leftmost_rs(&mut rs, log_depth, master);
-    let mut pk_left = PublicKey::from_ed25519_publickey(&keypair0.public);
-    let sk0 = keypair0;
+    let (sk0, mut pk_left) = generate_leftmost_rs(&mut rs, log_depth, master);
 
     let mut depth = Depth(0);
     let mut pks = Vec::new();
     // append to storage from leaf to root
     for r in rs.iter().rev() {
         let pk_right = if depth.0 == 0 {
-            PublicKey::from_ed25519_publickey(&common::keygen_1(r).public)
+            // if it is the initial, simply generate a ed25519 key
+            common::leaf_keygen(r).1
         } else {
+            // otherwise, recursively compute the corresponding hash
             pkeygen(depth, r)
         };
+        // Include both keys to my list of pks
         pks.push((pk_left.clone(), pk_right.clone()));
+        // todo: what if we take a mutable reference instead?
         depth = depth.incr();
+        // update pk_left as the hash of the two current ones.
         pk_left = hash(&pk_left, &pk_right);
     }
     // then store pk{left,right} from root to leaf
@@ -706,12 +806,16 @@ pub fn keygen(log_depth: Depth, master: &Seed) -> (SecretKey, PublicKey) {
     (SecretKey::create(0, sk0, &pks, &rs), pk_left)
 }
 
+/// Returns a KES signature for message `m` which is valid with respect to the root public key of
+/// `secret`.
 pub fn sign(secret: &SecretKey, m: &[u8]) -> Signature {
     let sk = secret.sk();
     let sigma = sk.sign(m);
     let mut pks = Vec::new();
     let mut t = secret.t();
 
+    // re-Create the merkle tree path with the given public keys.
+    // todo: check if we have both keys here.
     for (i, (pk0, pk1)) in secret.merkle_pks().enumerate() {
         let d = Depth(secret.depth().0 - i);
         if t >= d.half() {
@@ -729,9 +833,9 @@ pub fn sign(secret: &SecretKey, m: &[u8]) -> Signature {
         for (i, p) in pks.iter().rev().enumerate() {
             let right = (secret.t() & (1 << i)) != 0;
             if right {
-                got = hash(&p, &got);
+                got = hash(p, &got);
             } else {
-                got = hash(&got, &p);
+                got = hash(&got, p);
             }
         }
         assert_eq!(scheme_pk, got);
@@ -740,6 +844,9 @@ pub fn sign(secret: &SecretKey, m: &[u8]) -> Signature {
     Signature::create(secret.t(), sigma, &sk.public, &pks)
 }
 
+/// Verify a KES signatures `sig`, under a given KES public key `pk`. This function checks that the
+/// base signature is valid, and that the KES public key `pk` corresponds to the merkle tree root
+/// given by the hash values available in the signature.
 pub fn verify(pk: &PublicKey, m: &[u8], sig: &Signature) -> bool {
     // verify the signature of the leaf
     if sig.pk().verify(m, &sig.sigma()).is_err() {
@@ -764,19 +871,38 @@ pub fn verify(pk: &PublicKey, m: &[u8], sig: &Signature) -> bool {
     true
 }
 
+/// This function takes a mutable reference of a KES `SecretKey`. The function overwrites the
+/// bytes in the position of the keypair with the next key, and pops the next used seed. When
+/// the pop happens, the memory is overwritten with zeros.
+///
+/// In order to have some guarantees that the memory is safely deleted, the caller of the function
+/// must map the content of the `SecreKey` to erasable buffer, allowing for an in place mutation
+/// on filesystem with.
+///
+/// # Errors
+/// The function returns an error if it can no longer be updated, i.e. if the period went over the
+/// maximum allowed by the associated depth.
 pub fn update(secret: &mut SecretKey) -> Result<(), Error> {
     //assert!(secret.t() < secret.depth().total());
+    // this value tells us whether we are on the lhs of a leaf (diff = 1), or if we are on the
+    // rhs of a leaf (diff >= 2). This tells us how many carries there's been.
     let diff = usize::count_ones(secret.t() ^ (secret.t() + 1));
-    assert!(diff >= 1);
+    assert!(diff >= 1); // What is the point of this assertion?
 
+    // We get the next seed (and overwrite it with zeroes).
     match secret.rs_pop() {
         None => Err(Error::KeyCannotBeUpdatedMore),
         Some(seed) => {
+            // If we are on the lhs of a leaf, we simply generate the key pair with the seed.
             if diff == 1 {
-                let keypair = common::keygen_1(&seed);
-                secret.set_sk(&keypair);
+                let (sk, _) = common::leaf_keygen(&seed);
+                secret.set_sk(&sk);
             } else {
+                // If we are on the rhs of a leaf, it means that the "next" seed, is that of the
+                // higher level. The difference tells us the height of the seed we have. We use that
+                // to generate a new key with the corresponding Depth.
                 let (sec_child, pub_child) = keygen(Depth((diff - 1) as usize), &seed);
+                // Here we are checking the KES Public key, and not the ed25519 key
                 assert_eq!(
                     secret.get_merkle_pks(secret.depth().0 - diff as usize).1,
                     pub_child
@@ -800,8 +926,9 @@ pub fn update(secret: &mut SecretKey) -> Result<(), Error> {
 mod tests {
     use super::*;
 
-    use super::super::sumrec;
+    use crate::new_strucs;
     use quickcheck::{Arbitrary, Gen};
+
     impl Arbitrary for Seed {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             let mut b = [0u8; 32];
@@ -813,7 +940,9 @@ mod tests {
     }
     impl Arbitrary for Depth {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            Depth(usize::arbitrary(g) % 8)
+            // We don't want depth = 0. It only makes sense with > 0. And we %16 to have a few less
+            // options. Otherwise, testing takes too long.
+            Depth(usize::arbitrary(g) % 8 + 1)
         }
     }
 
@@ -920,7 +1049,20 @@ mod tests {
     fn check_recver_equivalent(depth: Depth, seed: Seed) -> bool {
         let (_, pk) = keygen(depth, &seed);
 
-        let (_, pkrec) = sumrec::keygen(depth, &seed);
+        let (_, pkrec) = new_strucs::keygen(depth, &seed);
         pk.as_bytes() == pkrec.as_bytes()
+    }
+
+    #[quickcheck]
+    fn check_verification_ref(depth: Depth, seed: Seed) -> bool {
+        let (mut sk_ref, pk_ref) = new_strucs::keygen(depth, &seed);
+
+        let random_message = b"tralala";
+        for period in 0..(depth.total() - 1) {
+            let signature = sk_ref.sign(period, random_message);
+            assert!(signature.verify(period, &pk_ref, random_message).is_ok());
+            assert!(sk_ref.update(period).is_ok());
+        }
+        true
     }
 }

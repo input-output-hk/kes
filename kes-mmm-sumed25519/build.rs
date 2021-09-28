@@ -1,5 +1,4 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     let pkg_version = if let Ok(date) = std::env::var("DATE") {
         format!("{}.{}", env!("CARGO_PKG_VERSION"), date)
     } else {

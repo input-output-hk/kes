@@ -4,7 +4,7 @@
 // is sum. this module should never be used for anything but testing.
 use super::common::{self, Depth, Seed};
 use ed25519_dalek as ed25519;
-use ed25519_dalek::{Digest, Verifier, Signer};
+use ed25519_dalek::{Digest, Signer, Verifier};
 
 pub enum SecretKey {
     Leaf(ed25519::Keypair),
@@ -46,11 +46,13 @@ pub fn keygen(log_depth: Depth, r: &Seed) -> (SecretKey, PublicKey) {
     //println!("keygen: log_depth: {:?}", log_depth);
     assert!(log_depth.0 < 32);
     if log_depth.0 == 0 {
-        let sk = common::keygen_1(r);
-        let pk = sk.public;
-        (SecretKey::Leaf(sk), PublicKey::Leaf(pk))
+        let (sk, pk) = common::leaf_keygen(r);
+        (
+            SecretKey::Leaf(sk),
+            PublicKey::Leaf(pk.to_ed25519().expect("Incorrectly generated tree")),
+        )
     } else {
-        let (r0, r1) = common::split_seed(r);
+        let (r0, r1) = r.split_seed();
         let (sk0, pk0) = keygen(log_depth.decr(), &r0);
         let (_, pk1) = keygen(log_depth.decr(), &r1);
         let pk = hash(&pk0, &pk1);
