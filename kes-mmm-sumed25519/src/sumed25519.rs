@@ -501,194 +501,96 @@ impl AsRef<[u8]> for PublicKey {
 /// * sigma : ED25519 individual signature linked to period
 /// * ED25519 public key of this period
 /// * public keys : merkle tree path elements
-/// todo: do we need signatures to be represented as `Vec`? We don't need to handle the memory
-/// safely in this case.
-#[derive(Debug, Clone)]
-pub struct Signature(Vec<u8>);
+#[derive(Clone)]
+pub struct Signature {
+    depth: Depth,
+    period: u32,
+    sigma: ed25519::Signature,
+    public_key: ed25519::PublicKey,
+    merkle_pks: MerkleSignaturePublicKeys,
+}
 
-// todo: can't we unify this structure and that of before?
 /// Structure representing the `PublicKey`s used to compute the merkle tree root in
 /// a signature.
-pub struct MerkleSignaturePublicKeys<'a>(&'a [u8]);
-
-impl<'a> Iterator for MerkleSignaturePublicKeys<'a> {
-    type Item = PublicKey;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.0.is_empty() {
-            None
-        } else {
-            let mut dat = [0u8; PUBLIC_KEY_SIZE];
-            dat.copy_from_slice(&self.0[0..PUBLIC_KEY_SIZE]);
-            *self = MerkleSignaturePublicKeys(&self.0[PUBLIC_KEY_SIZE..]);
-            Some(PublicKey(dat))
-        }
-    }
-}
-
-impl<'a> DoubleEndedIterator for MerkleSignaturePublicKeys<'a> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        if self.0.is_empty() {
-            None
-        } else {
-            let mut dat = [0u8; PUBLIC_KEY_SIZE];
-            let last_offset = self.0.len() - PUBLIC_KEY_SIZE;
-            dat.copy_from_slice(&self.0[last_offset..]);
-            *self = MerkleSignaturePublicKeys(&self.0[0..last_offset]);
-            Some(PublicKey(dat))
-        }
-    }
-}
-
-impl<'a> ExactSizeIterator for MerkleSignaturePublicKeys<'a> {
-    fn len(&self) -> usize {
-        self.0.len() / PUBLIC_KEY_SIZE
-    }
-}
+pub type MerkleSignaturePublicKeys = Vec<PublicKey>;
 
 /// Return the expected signature size of a signature with the given `depth`.
 pub const fn signature_size(depth: Depth) -> usize {
     PERIOD_SERIALIZE_SIZE + SIGMA_SIZE + INDIVIDUAL_PUBLIC_SIZE + depth.0 * PUBLIC_KEY_SIZE
 }
 
-impl AsRef<[u8]> for Signature {
-    fn as_ref(&self) -> &[u8] {
-        &self.0
-    }
-}
-
 impl Signature {
-    /// Position of the period in `Self::data`.
-    const T_OFFSET: usize = 0;
-    /// Position of the ed25519 signature in `Self::data`.
-    const SIGMA_OFFSET: usize = Self::T_OFFSET + PERIOD_SERIALIZE_SIZE;
-    /// Position of the ed25519 verification key in `Self::data`.
-    const PK_OFFSET: usize = Self::SIGMA_OFFSET + SIGMA_SIZE;
-    /// Position of the merkle tree path in `Self::data`.
-    const MERKLE_PKS_OFFSET: usize = Self::PK_OFFSET + INDIVIDUAL_PUBLIC_SIZE;
-
-    /// Returns the depth, by computing the length of the merkle tree path.
-    pub fn depth(&self) -> Depth {
-        Depth(self.merkle_pks().len())
-    }
-
     /// Compute the size in bytes of a signature
     /// currently this is : 100 (4 + 64 + 32) + 32*depth()
     pub fn size_bytes(&self) -> usize {
-        self.0.len()
-    }
-
-    /// Return the period associated with the signature
-    pub fn t(&self) -> usize {
-        let mut t = [0u8; PERIOD_SERIALIZE_SIZE];
-        t.copy_from_slice(&self.0[0..PERIOD_SERIALIZE_SIZE]);
-        PeriodSerialized::from_le_bytes(t) as usize
-    }
-
-    /// Return the ed25519 signature
-    fn sigma(&self) -> ed25519::Signature {
-        let mut bytes = [0u8; SIGMA_SIZE];
-        bytes.copy_from_slice(&self.0[Self::SIGMA_OFFSET..Self::PK_OFFSET]);
-        ed25519::Signature::new(bytes)
-    }
-
-    /// Return the ed25519 verification key
-    ///
-    /// # Panics
-    /// The function fails if the bytes in the position of the public key do not represent a
-    /// valid point in underlying curve.
-    fn pk(&self) -> ed25519::PublicKey {
-        let bytes = &self.0[Self::PK_OFFSET..Self::MERKLE_PKS_OFFSET];
-        ed25519::PublicKey::from_bytes(bytes).expect("internal error: pk invalid")
-    }
-
-    /// Return the merkle tree path
-    fn merkle_pks(&self) -> MerkleSignaturePublicKeys<'_> {
-        let bytes = &self.0[Self::MERKLE_PKS_OFFSET..];
-        MerkleSignaturePublicKeys(bytes)
-    }
-
-    /// Create a signature, given all its components.
-    fn create(
-        t: usize,
-        sigma: ed25519::Signature,
-        pk: &ed25519::PublicKey,
-        pks: &[PublicKey],
-    ) -> Self {
-        let mut out = Vec::with_capacity(
-            SIGMA_SIZE
-                + INDIVIDUAL_PUBLIC_SIZE
-                + PERIOD_SERIALIZE_SIZE
-                + PUBLIC_KEY_SIZE * pks.len(),
-        );
-        let t_bytes = PeriodSerialized::to_le_bytes(t as PeriodSerialized);
-        out.extend_from_slice(&t_bytes);
-        assert_eq!(out.len(), PERIOD_SERIALIZE_SIZE);
-        out.extend_from_slice(&sigma.to_bytes());
-        assert_eq!(out.len(), PERIOD_SERIALIZE_SIZE + SIGMA_SIZE);
-        out.extend_from_slice(pk.as_bytes());
-        assert_eq!(
-            out.len(),
-            PERIOD_SERIALIZE_SIZE + SIGMA_SIZE + INDIVIDUAL_PUBLIC_SIZE
-        );
-        for p in pks {
-            out.extend_from_slice(&p.0);
-        }
-        Signature(out)
+        signature_size(self.depth)
     }
 
     /// Get the bytes representation of the signature
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.0
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(
+            PERIOD_SERIALIZE_SIZE
+                + SIGMA_SIZE
+                + INDIVIDUAL_PUBLIC_SIZE
+                + self.depth.0 * PUBLIC_KEY_SIZE,
+        );
+        bytes.extend_from_slice(&self.period.to_le_bytes());
+        bytes.extend_from_slice(&self.sigma.to_bytes());
+        bytes.extend_from_slice(&self.public_key.to_bytes());
+        for key in self.merkle_pks.iter() {
+            bytes.extend_from_slice(&key.0);
+        }
+        bytes
     }
 
     /// Create a `Signature` from the given byte array.
     ///
     /// # Error
     /// The function returns an error if:
-    /// * `bytes.len()` is smaller than the expected size given the `depth`.
-    /// * `bytes` size starting at `Self::MERKLE_PKS_OFFSET` is not divisible by a public key size
-    /// * the number of public keys in `bytes` does not equal the given `depth`.
+    /// * `bytes.len()` is not equal to the expected signature size with the given `depth`.
     /// * the period in `bytes` is above the threshold allowed by `depth`.
     /// * the ed25519 public key in `bytes` does not correspond to a valid point in the elliptic
     ///   curve.
     pub fn from_bytes(depth: Depth, bytes: &[u8]) -> Result<Self, Error> {
-        let minimum_size = SIGMA_SIZE + INDIVIDUAL_PUBLIC_SIZE + PERIOD_SERIALIZE_SIZE;
-        // we need at least N bytes, anything under and it's invalid
-        if bytes.len() < minimum_size {
+        if bytes.len() != signature_size(depth) {
             return Err(Error::InvalidSignatureSize(bytes.len()));
         }
 
-        // check if the length is valid, and get the depth by the number of public key
-        let rem = (bytes.len() - minimum_size) % 32;
-        if rem > 0 {
-            return Err(Error::InvalidSignatureSize(bytes.len()));
-        }
-        let found_depth = (bytes.len() - minimum_size) / 32;
-        if found_depth != depth.0 {
-            return Err(Error::InvalidSignatureSize(bytes.len()));
-        }
-
-        // get T and make sure it's under the total
         let mut t_bytes = [0u8; PERIOD_SERIALIZE_SIZE];
         t_bytes.copy_from_slice(&bytes[0..PERIOD_SERIALIZE_SIZE]);
-        let t = PeriodSerialized::from_le_bytes(t_bytes) as usize;
-        if t >= depth.total() {
-            return Err(Error::InvalidSignatureCount(t, depth));
+        let period = PeriodSerialized::from_le_bytes(t_bytes);
+        if period as usize >= depth.total() {
+            return Err(Error::InvalidSignatureCount(period as usize, depth));
         }
 
+        let merkle_pks_offset = PERIOD_SERIALIZE_SIZE + SIGMA_SIZE + INDIVIDUAL_PUBLIC_SIZE;
         let mut sigma_slice = [0u8; SIGMA_SIZE];
-        sigma_slice.copy_from_slice(&bytes[Self::SIGMA_OFFSET..Self::SIGMA_OFFSET + SIGMA_SIZE]);
-        let pk_slice = &bytes[Self::PK_OFFSET..Self::PK_OFFSET + INDIVIDUAL_PUBLIC_SIZE];
+        sigma_slice
+            .copy_from_slice(&bytes[PERIOD_SERIALIZE_SIZE..PERIOD_SERIALIZE_SIZE + SIGMA_SIZE]);
+        let sigma = ed25519::Signature::new(sigma_slice);
+        let public_key = ed25519::PublicKey::from_bytes(
+            &bytes[PERIOD_SERIALIZE_SIZE + SIGMA_SIZE..merkle_pks_offset],
+        )?;
 
-        // verify sigma and pk format, no need to verify pks
-        let _ = ed25519::PublicKey::from_bytes(pk_slice)?;
-        let _ = ed25519::Signature::new(sigma_slice);
+        let mut merkle_pks = Vec::with_capacity(depth.0);
+        let mut temp_key = [0; PUBLIC_KEY_SIZE];
 
-        let mut out = Vec::with_capacity(bytes.len());
-        out.extend_from_slice(bytes);
+        for i in 0..depth.0 {
+            temp_key.copy_from_slice(
+                bytes[merkle_pks_offset + i * PUBLIC_KEY_SIZE
+                    ..merkle_pks_offset + (i + 1) * PUBLIC_KEY_SIZE]
+                    .into(),
+            );
+            merkle_pks.push(PublicKey(temp_key));
+        }
 
-        Ok(Signature(out))
+        Ok(Signature {
+            depth,
+            period,
+            sigma,
+            public_key,
+            merkle_pks,
+        })
     }
 }
 
@@ -811,37 +713,27 @@ pub fn keygen(log_depth: Depth, master: &Seed) -> (SecretKey, PublicKey) {
 pub fn sign(secret: &SecretKey, m: &[u8]) -> Signature {
     let sk = secret.sk();
     let sigma = sk.sign(m);
-    let mut pks = Vec::new();
+    let mut merkle_pks = Vec::new();
     let mut t = secret.t();
 
     // re-Create the merkle tree path with the given public keys.
-    // todo: check if we have both keys here.
     for (i, (pk0, pk1)) in secret.merkle_pks().enumerate() {
         let d = Depth(secret.depth().0 - i);
         if t >= d.half() {
             t -= d.half();
-            pks.push(pk0.clone());
+            merkle_pks.push(pk0.clone());
         } else {
-            pks.push(pk1.clone());
+            merkle_pks.push(pk1.clone());
         }
     }
 
-    // disabled extra debug check that we can reconstruct from the pks the public key
-    if false {
-        let scheme_pk = secret.compute_public();
-        let mut got = PublicKey::from_ed25519_publickey(&sk.public);
-        for (i, p) in pks.iter().rev().enumerate() {
-            let right = (secret.t() & (1 << i)) != 0;
-            if right {
-                got = hash(p, &got);
-            } else {
-                got = hash(&got, p);
-            }
-        }
-        assert_eq!(scheme_pk, got);
+    Signature {
+        depth: secret.depth,
+        period: secret.t() as u32,
+        sigma,
+        public_key: sk.public,
+        merkle_pks,
     }
-
-    Signature::create(secret.t(), sigma, &sk.public, &pks)
 }
 
 /// Verify a KES signatures `sig`, under a given KES public key `pk`. This function checks that the
@@ -849,15 +741,15 @@ pub fn sign(secret: &SecretKey, m: &[u8]) -> Signature {
 /// given by the hash values available in the signature.
 pub fn verify(pk: &PublicKey, m: &[u8], sig: &Signature) -> bool {
     // verify the signature of the leaf
-    if sig.pk().verify(m, &sig.sigma()).is_err() {
+    if sig.public_key.verify(m, &sig.sigma).is_err() {
         return false;
     }
 
-    let t = sig.t();
+    let t = sig.period;
 
     // verify that we have the expected root public key afterall
-    let mut got = PublicKey::from_ed25519_publickey(&sig.pk());
-    for (i, pk_combi) in sig.merkle_pks().rev().enumerate() {
+    let mut got = PublicKey::from_ed25519_publickey(&sig.public_key);
+    for (i, pk_combi) in sig.clone().merkle_pks.into_iter().rev().enumerate() {
         let right = (t & (1 << i)) != 0;
         if right {
             got = hash(&pk_combi, &got);
