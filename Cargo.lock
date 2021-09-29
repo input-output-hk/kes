@@ -342,6 +342,7 @@ dependencies = [
  "rand",
  "sha2",
  "versionisator",
+ "zeroize",
 ]
 
 [[package]]

@@ -5,7 +5,7 @@ use ed25519_dalek::Digest;
 
 /// Seed of a KES scheme.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Seed([u8; 32]);
+pub struct Seed(pub(crate) [u8; 32]);
 
 impl AsRef<[u8]> for Seed {
     fn as_ref(&self) -> &[u8] {

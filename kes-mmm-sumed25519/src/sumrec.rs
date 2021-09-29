@@ -1,131 +1,165 @@
-#![allow(clippy::large_enum_variant)]
-// this is only a test module that use only recursive functions calls
-// to compute the trees, and its use to compare to the more imperative fnuctions
-// is sum. this module should never be used for anything but testing.
-use super::common::{self, Depth, Seed};
-use ed25519_dalek as ed25519;
-use ed25519_dalek::{Digest, Signer, Verifier};
+//! New design of recursive functions. This will eventually fall (or be merged with sumrec).
+//! Currently only used for ease of understanding.
+#![allow(dead_code)]
+use crate::common::{leaf_keygen, Depth, Seed};
+use crate::errors::Error;
+use crate::sumed25519::{hash, PublicKey};
+use ed25519_dalek::{Keypair as EdKeypair, Signature as EdSignature, Signer, Verifier};
+use std::cmp::Ordering;
 
-pub enum SecretKey {
-    Leaf(ed25519::Keypair),
-    Node(usize, Depth, Box<SecretKey>, Seed, PublicKey, PublicKey),
+/// A `KesSecretKey`, that can be either a `Leaf` or a `Node` depending on its position on the
+/// Merkle tree.
+pub enum KesSecretKey {
+    /// Key is a `ed25519` keypair in case of it being a leaf
+    Leaf(EdKeypair),
+    /// Key is a `Box` of a recursive `SecretKey` in case of it being the node.
+    Node(Box<KesRecSecretKey>),
 }
 
-#[derive(Clone)]
-pub enum PublicKey {
-    Leaf(ed25519::PublicKey),
-    Node([u8; 32]),
-}
-
-impl PublicKey {
-    pub fn as_bytes(&self) -> &[u8] {
-        match self {
-            PublicKey::Leaf(p) => p.as_bytes(),
-            PublicKey::Node(h) => h,
-        }
+impl From<EdKeypair> for KesSecretKey {
+    fn from(kp: EdKeypair) -> Self {
+        Self::Leaf(kp)
     }
 }
 
-pub enum Signature {
-    Leaf(ed25519::Signature),
-    Node(usize, Depth, Box<Signature>, PublicKey, PublicKey),
+impl From<KesRecSecretKey> for KesSecretKey {
+    fn from(k: KesRecSecretKey) -> Self {
+        Self::Node(Box::new(k))
+    }
 }
 
-pub fn hash(pk1: &PublicKey, pk2: &PublicKey) -> [u8; 32] {
-    let mut out = [0u8; 32];
-    let mut h = sha2::Sha256::default();
-    h.update(pk1.as_bytes());
-    h.update(pk2.as_bytes());
-
-    let o = h.finalize();
-    out.copy_from_slice(&o);
-    out
+/// A `KesRecSecretKey` is a recursive `KesSecretKey`. As described in Figure 3 of the paper, it
+/// contains a secret key `lhs_sk`, a seed `rhs_seed`, and two public keys, `lhs_pk` and `rhs_pk`.
+pub struct KesRecSecretKey {
+    depth: Depth,
+    sk: KesSecretKey,
+    seed: Seed,
+    lhs_pk: PublicKey,
+    rhs_pk: PublicKey,
 }
 
-pub fn keygen(log_depth: Depth, r: &Seed) -> (SecretKey, PublicKey) {
-    //println!("keygen: log_depth: {:?}", log_depth);
-    assert!(log_depth.0 < 32);
-    if log_depth.0 == 0 {
-        let (sk, pk) = common::leaf_keygen(r);
-        (
-            SecretKey::Leaf(sk),
-            PublicKey::Leaf(pk.to_ed25519().expect("Incorrectly generated tree")),
-        )
+/// A `KesSignature`, that can be either a `Leaf` or a `Node` depending on its position on the
+/// Merkle tree.
+pub enum KesSignature {
+    /// In case of it being a `Leaf`, it contains an `EdSignature`.
+    Leaf(EdSignature),
+    /// In case of it being a `Node`, it contains a `Box` with a recursive signature `KesRecSignature`
+    Node(Box<KesRecSignature>),
+}
+
+impl From<EdSignature> for KesSignature {
+    fn from(sig: EdSignature) -> Self {
+        Self::Leaf(sig)
+    }
+}
+
+impl From<KesRecSignature> for KesSignature {
+    fn from(s: KesRecSignature) -> Self {
+        Self::Node(Box::new(s))
+    }
+}
+
+/// A recursive KES signature as defined in Figure 3.
+pub struct KesRecSignature {
+    depth: Depth,
+    signature: KesSignature,
+    lhs_pk: PublicKey,
+    rhs_pk: PublicKey,
+}
+
+/// Generate a key pair of the recursive secret key `KesRecSecretKey`.
+pub fn keygen(depth: Depth, seed: &Seed) -> (KesRecSecretKey, PublicKey) {
+    let (r0, seed) = seed.split_seed();
+    let (sk, lhs_pk, rhs_pk) = if depth.0 == 1 {
+        let (sk_0, pk_0) = leaf_keygen(&r0);
+        let (_, pk_1) = leaf_keygen(&seed);
+        (sk_0.into(), pk_0, pk_1)
     } else {
-        let (r0, r1) = r.split_seed();
-        let (sk0, pk0) = keygen(log_depth.decr(), &r0);
-        let (_, pk1) = keygen(log_depth.decr(), &r1);
-        let pk = hash(&pk0, &pk1);
-        (
-            SecretKey::Node(0, log_depth, Box::new(sk0), r1, pk0, pk1),
-            PublicKey::Node(pk),
-        )
-    }
-}
-
-#[allow(dead_code)]
-#[allow(clippy::if_same_then_else)]
-pub fn sign(enum_sk: &SecretKey, m: &[u8]) -> Signature {
-    match enum_sk {
-        SecretKey::Leaf(s) => {
-            //println!("sign with leaf");
-            let sigma = s.sign(m);
-            Signature::Leaf(sigma)
-        }
-        SecretKey::Node(t, depth, sk, _, pk0, pk1) => {
-            //println!("sign node : t={:?} T0={:?}", *t, depth.half());
-            let sigma = if t < &depth.half() {
-                sign(sk, m)
-            } else {
-                sign(sk, m)
-            };
-            Signature::Node(*t, *depth, Box::new(sigma), pk0.clone(), pk1.clone())
-        }
-    }
-}
-
-#[allow(dead_code)]
-pub fn verify(pk: &PublicKey, m: &[u8], sig: &Signature) -> bool {
-    match sig {
-        Signature::Leaf(s) => match pk {
-            PublicKey::Leaf(pk) => pk.verify(m, s).is_ok(),
-            PublicKey::Node(_) => panic!("xxxxxxxx"),
+        let (sk_0, pk_0) = keygen(depth.decr(), &r0);
+        let (_, pk_1) = keygen(depth.decr(), &seed);
+        (sk_0.into(), pk_0, pk_1)
+    };
+    let pk = hash(&lhs_pk, &rhs_pk);
+    (
+        KesRecSecretKey {
+            depth,
+            sk,
+            seed,
+            lhs_pk,
+            rhs_pk,
         },
-        Signature::Node(tsig, depth, sigma, pk0, pk1) => match pk {
-            PublicKey::Leaf(_) => panic!("verify on leaf !"),
-            PublicKey::Node(pk) => {
-                //println!("verify: tsig={:?} T0:{:?}", *tsig, depth.half());
-                if &hash(pk0, pk1) != pk {
-                    return false;
-                };
-                if *tsig < depth.half() {
-                    verify(pk0, m, sigma)
+        pk,
+    )
+}
+
+impl KesRecSecretKey {
+    /// Given a `KesRecSecretKey`, this function returns a `KesRecSignature`.
+    pub fn sign(&self, period: usize, m: &[u8]) -> KesRecSignature {
+        let signature = match &self.sk {
+            KesSecretKey::Leaf(lhs_sk) => lhs_sk.sign(m).into(),
+            KesSecretKey::Node(lhs_sk) => {
+                if period < self.depth.half() {
+                    lhs_sk.sign(period, m).into()
                 } else {
-                    verify(pk1, m, sigma)
+                    lhs_sk.sign(period - self.depth.half(), m).into()
                 }
             }
-        },
+        };
+        KesRecSignature {
+            depth: self.depth,
+            signature,
+            lhs_pk: self.lhs_pk.clone(),
+            rhs_pk: self.rhs_pk.clone(),
+        }
+    }
+
+    /// Given a mutable reference to self, and the current `period`, this function overwirtes
+    /// the secret key, with the updated key.
+    ///
+    /// # Errors
+    /// This function fails if the Key can no longer be updated.
+    pub fn update(&mut self, period: usize) -> Result<(), Error> {
+        match &mut self.sk {
+            KesSecretKey::Leaf(_) => {
+                assert_eq!(period + 1, self.depth.half());
+                self.sk = leaf_keygen(&self.seed).0.into();
+                // todo: drop the seed.
+            }
+            KesSecretKey::Node(s) => {
+                if period == self.depth.total() {
+                    return Err(Error::KeyCannotBeUpdatedMore);
+                }
+
+                match (period + 1).cmp(&self.depth.half()) {
+                    Ordering::Less => s.update(period)?,
+                    Ordering::Equal => self.sk = keygen(self.depth.decr(), &self.seed).0.into(),
+                    Ordering::Greater => s.update(period - self.depth.half())?,
+                }
+            }
+        };
+
+        Ok(())
     }
 }
 
-#[allow(dead_code)]
-#[allow(clippy::comparison_chain)]
-pub fn update(sk: &mut SecretKey) {
-    match sk {
-        SecretKey::Leaf(_) => panic!("who you gonna call ?!"),
-        SecretKey::Node(ref mut t, depth, ref mut skbox, ref mut r1, _, _) => {
-            //println!("update called: t={:?} T0={:?}", *t, depth.half());
-            let t0 = depth.half();
-            if *t + 1 < t0 {
-                update(skbox)
-            } else if *t + 1 == t0 {
-                let (newsk, _) = keygen(depth.decr(), &r1);
-                *skbox = Box::new(newsk);
-                *r1 = Seed::zero()
-            } else {
-                update(skbox)
-            }
-            *t += 1
+impl KesRecSignature {
+    /// Given a `KesRecSignature`, a `period`, `PublicKey` `pk` and a message `m`, this function
+    /// checks the `KES`signature.
+    pub fn verify(&self, period: usize, pk: &PublicKey, m: &[u8]) -> Result<(), Error> {
+        if &hash(&self.lhs_pk, &self.rhs_pk) != pk {
+            return Err(Error::InvalidHashComparison);
+        };
+
+        // We compute the public key and updated period over which to verify the next signature
+        let (updated_pk, updated_period) = if period < self.depth.half() {
+            (&self.lhs_pk, period)
+        } else {
+            (&self.rhs_pk, period - self.depth.half())
+        };
+
+        match &self.signature {
+            KesSignature::Leaf(s) => updated_pk.to_ed25519()?.verify(m, s).map_err(|e| e.into()),
+            KesSignature::Node(s) => s.verify(updated_period, updated_pk, m),
         }
     }
 }

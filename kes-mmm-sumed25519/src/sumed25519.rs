@@ -818,7 +818,7 @@ pub fn update(secret: &mut SecretKey) -> Result<(), Error> {
 mod tests {
     use super::*;
 
-    use crate::new_strucs;
+    use crate::sumrec;
     use quickcheck::{Arbitrary, Gen};
 
     impl Arbitrary for Seed {
@@ -941,13 +941,13 @@ mod tests {
     fn check_recver_equivalent(depth: Depth, seed: Seed) -> bool {
         let (_, pk) = keygen(depth, &seed);
 
-        let (_, pkrec) = new_strucs::keygen(depth, &seed);
+        let (_, pkrec) = sumrec::keygen(depth, &seed);
         pk.as_bytes() == pkrec.as_bytes()
     }
 
     #[quickcheck]
     fn check_verification_ref(depth: Depth, seed: Seed) -> bool {
-        let (mut sk_ref, pk_ref) = new_strucs::keygen(depth, &seed);
+        let (mut sk_ref, pk_ref) = sumrec::keygen(depth, &seed);
 
         let random_message = b"tralala";
         for period in 0..(depth.total() - 1) {
