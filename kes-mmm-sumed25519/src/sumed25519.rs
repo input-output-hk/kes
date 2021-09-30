@@ -17,11 +17,11 @@ type PeriodSerialized = u32;
 const PERIOD_SERIALIZE_SIZE: usize = 4;
 
 /// ED25519 secret key size
-const INDIVIDUAL_SECRET_SIZE: usize = 32;
+pub const INDIVIDUAL_SECRET_SIZE: usize = 32;
 /// ED25519 public key size
-const INDIVIDUAL_PUBLIC_SIZE: usize = 32;
+pub const INDIVIDUAL_PUBLIC_SIZE: usize = 32;
 /// ED25519 signature size
-const SIGMA_SIZE: usize = 64;
+pub const SIGMA_SIZE: usize = 64;
 
 /// KES public key size (which equals the size of the output of the Hash).
 pub const PUBLIC_KEY_SIZE: usize = 32;
@@ -832,9 +832,9 @@ mod tests {
     }
     impl Arbitrary for Depth {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            // We don't want depth = 0. It only makes sense with > 0. And we %16 to have a few less
+            // We don't want depth = 0. It only makes sense with > 0. And we %4 to have a few less
             // options. Otherwise, testing takes too long.
-            Depth(usize::arbitrary(g) % 8 + 1)
+            Depth(usize::arbitrary(g) % 4 + 1)
         }
     }
 

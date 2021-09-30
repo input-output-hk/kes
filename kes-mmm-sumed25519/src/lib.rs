@@ -14,7 +14,7 @@ extern crate quickcheck_macros;
 
 mod common;
 #[macro_use]
-mod macros;
+mod single_kes;
 pub mod erasable_buffer;
 pub mod errors;
 pub mod sumed25519;

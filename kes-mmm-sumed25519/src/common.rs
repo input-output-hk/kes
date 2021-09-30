@@ -63,6 +63,30 @@ impl Seed {
         let s2 = Seed::from_slice(&o2);
         (s1, s2)
     }
+
+    /// Function that takes as input a mutable slice, splits it into two, and overwrites the input
+    /// slice with zeros.
+    pub fn split_slice(bytes: &mut [u8]) -> ([u8; 32], [u8; 32]) {
+        let mut left_seed = [0u8; Self::SIZE];
+        let mut right_seed = [0u8; Self::SIZE];
+
+        let mut hleft = sha2::Sha256::default();
+        let mut hright = sha2::Sha256::default();
+
+        hleft.update(&[1]);
+        hleft.update(&bytes);
+
+        hright.update(&[2]);
+        hright.update(&bytes);
+
+        // finalize() consumes the hasher instance.
+        left_seed.copy_from_slice(hleft.finalize().as_slice());
+        right_seed.copy_from_slice(hright.finalize().as_slice());
+
+        bytes.copy_from_slice(&[0u8; Self::SIZE]);
+
+        (left_seed, right_seed)
+    }
 }
 
 /// Structure that represents the depth of the binary tree.
