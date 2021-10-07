@@ -1,7 +1,8 @@
 //! Structures common to all constructions of key evolving signatures
 use crate::sumed25519::PublicKey;
+use blake2::digest::{Update, VariableOutput};
+use blake2::{Digest, VarBlake2b};
 use ed25519_dalek as ed25519;
-use ed25519_dalek::Digest;
 
 /// Seed of a KES scheme.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,18 +48,21 @@ impl Seed {
     /// the function hashes (0x01 || self.0) for the first part of the output, and (0x02 || self.0)
     /// for the second part.
     pub fn split_seed(&self) -> (Seed, Seed) {
-        let mut hleft = sha2::Sha256::default();
-        let mut hright = sha2::Sha256::default();
+        let mut hleft = VarBlake2b::new(32).expect("valid size");
+        let mut hright = VarBlake2b::new(32).expect("valid size");
 
-        // todo: where are these domain separations coming from? Same as Haskell impl?
         hleft.update(&[1]);
         hleft.update(&self.0);
 
         hright.update(&[2]);
         hright.update(&self.0);
 
-        let o1 = hleft.finalize();
-        let o2 = hright.finalize();
+        let mut o1 = [0u8; 32];
+        let mut o2 = [0u8; 32];
+
+        hleft.finalize_variable(|out| o1.copy_from_slice(out));
+        hright.finalize_variable(|out| o2.copy_from_slice(out));
+
         let s1 = Seed::from_slice(&o1);
         let s2 = Seed::from_slice(&o2);
         (s1, s2)
@@ -70,8 +74,8 @@ impl Seed {
         let mut left_seed = [0u8; Self::SIZE];
         let mut right_seed = [0u8; Self::SIZE];
 
-        let mut hleft = sha2::Sha256::default();
-        let mut hright = sha2::Sha256::default();
+        let mut hleft = VarBlake2b::new(32).expect("valid size");
+        let mut hright = VarBlake2b::new(32).expect("valid size");
 
         hleft.update(&[1]);
         hleft.update(&bytes);
@@ -80,8 +84,9 @@ impl Seed {
         hright.update(&bytes);
 
         // finalize() consumes the hasher instance.
-        left_seed.copy_from_slice(hleft.finalize().as_slice());
-        right_seed.copy_from_slice(hright.finalize().as_slice());
+
+        hleft.finalize_variable(|out| left_seed.copy_from_slice(out));
+        hright.finalize_variable(|out| right_seed.copy_from_slice(out));
 
         bytes.copy_from_slice(&[0u8; Self::SIZE]);
 

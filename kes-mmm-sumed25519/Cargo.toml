@@ -10,7 +10,7 @@ keywords = [ "Crypto", "KES", "Ed25519", "MMM", "Sum" ]
 [dependencies]
 ed25519-dalek = "1"
 rand = { version = "0.7" }
-sha2 = "0.9"
+blake2 = "0.9"
 zeroize = "1.4"
 
 [dev-dependencies]

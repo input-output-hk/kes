@@ -2,8 +2,9 @@
 use super::common;
 pub use super::common::{Depth, Seed};
 use super::errors::Error;
+use blake2::digest::{Update, VariableOutput};
+use blake2::{Digest, VarBlake2b};
 use ed25519_dalek as ed25519;
-use ed25519_dalek::Digest;
 use ed25519_dalek::Signer;
 use ed25519_dalek::Verifier;
 use rand::{CryptoRng, RngCore};
@@ -450,7 +451,7 @@ impl SecretKey {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// KES public key, which is represented as an array of bytes. A `PublicKey`is the output
-/// of a SHA256 hash.
+/// of a Blake2b hash.
 pub struct PublicKey([u8; PUBLIC_KEY_SIZE]);
 
 impl PublicKey {
@@ -594,15 +595,14 @@ impl Signature {
     }
 }
 
-/// Hash two public keys using SHA256
+/// Hash two public keys using Blake2b
 pub fn hash(pk1: &PublicKey, pk2: &PublicKey) -> PublicKey {
     let mut out = [0u8; 32];
-    let mut h = sha2::Sha256::default();
+    let mut h = VarBlake2b::new(32).expect("valid size");
     h.update(&pk1.0);
     h.update(&pk2.0);
 
-    let o = h.finalize();
-    out.copy_from_slice(&o);
+    h.finalize_variable(|res| out.copy_from_slice(res));
     PublicKey(out)
 }
 
@@ -871,28 +871,28 @@ mod tests {
         secretkey_identical(
             &sk.sk().to_bytes(),
             &[
-                26, 125, 253, 234, 255, 238, 218, 196, 137, 40, 126, 133, 190, 94, 156, 4, 154, 47,
-                246, 71, 15, 85, 207, 48, 38, 15, 85, 57, 90, 193, 177, 89, 78, 235, 10, 159, 73,
-                188, 163, 72, 115, 121, 126, 90, 61, 168, 98, 180, 65, 232, 227, 153, 30, 37, 185,
-                126, 176, 154, 229, 246, 71, 227, 121, 87,
+                66, 139, 76, 239, 77, 29, 24, 24, 5, 115, 119, 195, 241, 70, 216, 222, 255, 237,
+                237, 15, 237, 41, 120, 41, 73, 189, 238, 116, 154, 117, 181, 236, 0, 51, 159, 203,
+                83, 114, 117, 147, 134, 123, 163, 19, 124, 46, 131, 246, 201, 54, 27, 207, 235,
+                149, 97, 207, 56, 82, 208, 76, 189, 187, 133, 203,
             ],
         );
         assert_eq!(update(&mut sk).is_ok(), true);
         secretkey_identical(
             &sk.sk().to_bytes(),
             &[
-                82, 59, 165, 167, 236, 147, 98, 219, 176, 128, 57, 163, 135, 146, 37, 146, 204,
-                234, 61, 222, 99, 99, 68, 128, 205, 27, 5, 183, 189, 80, 162, 105, 218, 6, 10, 158,
-                150, 121, 109, 154, 129, 208, 227, 82, 89, 185, 132, 57, 60, 25, 22, 161, 74, 85,
-                58, 137, 78, 81, 131, 138, 253, 43, 125, 198,
+                15, 215, 229, 255, 142, 152, 79, 220, 219, 176, 87, 167, 140, 199, 154, 105, 227,
+                110, 134, 224, 70, 136, 28, 196, 49, 99, 97, 24, 48, 167, 156, 4, 58, 206, 140,
+                206, 135, 144, 159, 148, 221, 159, 149, 178, 239, 119, 50, 40, 110, 211, 120, 107,
+                10, 145, 147, 233, 27, 220, 40, 171, 234, 19, 175, 124,
             ],
         );
 
         assert_eq!(
             pk.as_ref(),
             &[
-                190, 13, 111, 45, 153, 107, 149, 75, 135, 90, 183, 153, 136, 191, 230, 90, 37, 84,
-                209, 51, 112, 139, 61, 199, 190, 165, 166, 68, 79, 124, 221, 165
+                115, 239, 224, 116, 157, 4, 167, 209, 27, 50, 147, 108, 54, 130, 97, 155, 82, 92,
+                141, 199, 182, 174, 92, 244, 71, 246, 121, 131, 117, 8, 188, 103
             ]
         );
     }
