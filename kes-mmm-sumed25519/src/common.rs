@@ -1,7 +1,7 @@
 //! Structures common to all constructions of key evolving signatures
 use crate::sumed25519::PublicKey;
 use blake2::digest::{Update, VariableOutput};
-use blake2::{Digest, VarBlake2b};
+use blake2::VarBlake2b;
 use ed25519_dalek as ed25519;
 
 /// Seed of a KES scheme.

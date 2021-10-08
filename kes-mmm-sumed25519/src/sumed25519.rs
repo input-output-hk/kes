@@ -3,7 +3,7 @@ use super::common;
 pub use super::common::{Depth, Seed};
 use super::errors::Error;
 use blake2::digest::{Update, VariableOutput};
-use blake2::{Digest, VarBlake2b};
+use blake2::VarBlake2b;
 use ed25519_dalek as ed25519;
 use ed25519_dalek::Signer;
 use ed25519_dalek::Verifier;

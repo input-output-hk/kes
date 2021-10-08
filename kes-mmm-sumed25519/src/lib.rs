@@ -14,11 +14,11 @@ extern crate quickcheck_macros;
 
 mod common;
 #[macro_use]
-mod single_kes;
+pub mod single_kes;
 pub mod erasable_buffer;
 pub mod errors;
 pub mod sumed25519;
-mod traits;
+pub mod traits;
 
 /// Module to handle version environment variables.
 pub mod version {

@@ -6,10 +6,8 @@
 
 use crate::common::{Depth, Seed};
 use crate::errors::Error;
-use crate::sumed25519::{
-    hash, PublicKey, INDIVIDUAL_SECRET_SIZE, PUBLIC_KEY_SIZE, SIGMA_SIZE,
-};
-use crate::single_kes::{Sum0KesSig, Sum0Kes};
+use crate::single_kes::{Sum0Kes, Sum0KesSig};
+use crate::sumed25519::{hash, PublicKey, INDIVIDUAL_SECRET_SIZE, PUBLIC_KEY_SIZE, SIGMA_SIZE};
 use crate::traits::{KesSig, KesSk};
 use std::cmp::Ordering;
 use zeroize::Zeroize;
@@ -146,8 +144,7 @@ macro_rules! sum_kes {
 
         impl $signame {
             /// Byte size of the signature
-            pub const SIZE: usize =
-                SIGMA_SIZE + $depth * (PUBLIC_KEY_SIZE * 2);
+            pub const SIZE: usize = SIGMA_SIZE + $depth * (PUBLIC_KEY_SIZE * 2);
 
             /// Convert the slice of bytes into `Self`.
             ///
@@ -162,9 +159,16 @@ macro_rules! sum_kes {
                 }
 
                 let sigma = $sigma::from_bytes(&bytes[..$sigma::SIZE])?;
-                let lhs_pk = PublicKey::from_bytes(&bytes[$sigma::SIZE..$sigma::SIZE + PUBLIC_KEY_SIZE])?;
-                let rhs_pk = PublicKey::from_bytes(&bytes[$sigma::SIZE + PUBLIC_KEY_SIZE..$sigma::SIZE + 2 * PUBLIC_KEY_SIZE])?;
-                Ok(Self {sigma, lhs_pk, rhs_pk})
+                let lhs_pk =
+                    PublicKey::from_bytes(&bytes[$sigma::SIZE..$sigma::SIZE + PUBLIC_KEY_SIZE])?;
+                let rhs_pk = PublicKey::from_bytes(
+                    &bytes[$sigma::SIZE + PUBLIC_KEY_SIZE..$sigma::SIZE + 2 * PUBLIC_KEY_SIZE],
+                )?;
+                Ok(Self {
+                    sigma,
+                    lhs_pk,
+                    rhs_pk,
+                })
             }
 
             /// Convert `Self` into it's byte representation. In particular, the encoding returns
@@ -173,8 +177,10 @@ macro_rules! sum_kes {
             pub fn to_bytes(&self) -> [u8; Self::SIZE] {
                 let mut data = [0u8; Self::SIZE];
                 data[..$sigma::SIZE].copy_from_slice(&self.sigma.to_bytes());
-                data[$sigma::SIZE..$sigma::SIZE + PUBLIC_KEY_SIZE].copy_from_slice(self.lhs_pk.as_ref());
-                data[$sigma::SIZE + PUBLIC_KEY_SIZE..$sigma::SIZE + 2 * PUBLIC_KEY_SIZE].copy_from_slice(self.rhs_pk.as_ref());
+                data[$sigma::SIZE..$sigma::SIZE + PUBLIC_KEY_SIZE]
+                    .copy_from_slice(self.lhs_pk.as_ref());
+                data[$sigma::SIZE + PUBLIC_KEY_SIZE..$sigma::SIZE + 2 * PUBLIC_KEY_SIZE]
+                    .copy_from_slice(self.rhs_pk.as_ref());
 
                 data
             }

@@ -1,21 +1,23 @@
 //! Implementation of the base signature used for KES. This is a standard signature
 //! mechanism which is considered a KES signature scheme with a single period. In this
 //! case, the single instance is ed25519.
-pub use ed25519_dalek::{
-    SECRET_KEY_LENGTH, PUBLIC_KEY_LENGTH
-};
-use crate::sumed25519::PublicKey;
 use crate::errors::Error;
+use crate::sumed25519::PublicKey;
 use crate::traits::{KesSig, KesSk};
-use ed25519_dalek::{Keypair as EdKeypair, SecretKey as EdSecretKey, Signature as EdSignature, Verifier, Signer, SIGNATURE_LENGTH};
+use ed25519_dalek::{
+    Keypair as EdKeypair, SecretKey as EdSecretKey, Signature as EdSignature, Signer, Verifier,
+    SIGNATURE_LENGTH,
+};
+pub use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 use zeroize::Zeroize;
-
 
 #[derive(Zeroize)]
 #[zeroize(drop)]
-pub(crate) struct Sum0Kes(pub(crate) [u8; SECRET_KEY_LENGTH]);
+/// Single KES instance, which is a wrapper over ed25519.
+pub struct Sum0Kes(pub(crate) [u8; SECRET_KEY_LENGTH]);
 
-pub(crate) struct Sum0KesSig(pub(crate) EdSignature);
+/// Singke KES Signature instance, which is a wrapper over ed25519.
+pub struct Sum0KesSig(pub(crate) EdSignature);
 
 impl KesSk for Sum0Kes {
     type Sig = Sum0KesSig;
@@ -53,8 +55,10 @@ impl KesSig for Sum0KesSig {
 
 // Serialisation
 impl Sum0Kes {
+    /// Size of secret key of Single KES instance
     pub const SIZE: usize = SECRET_KEY_LENGTH;
 
+    /// Convert a byte array into a key
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.len() != Self::SIZE {
             return Err(Error::InvalidSecretKeySize(bytes.len()));
@@ -65,14 +69,18 @@ impl Sum0Kes {
         Ok(Self(key))
     }
 
+    /// Return the current key as a byte slice.
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
 }
 
 impl Sum0KesSig {
+    /// Size of the KES signature with depth 0
     pub const SIZE: usize = SIGNATURE_LENGTH;
 
+    /// Convert a byte array into a signature
+    /// todo: failures.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.len() != Self::SIZE {
             return Err(Error::InvalidSecretKeySize(bytes.len()));
@@ -83,6 +91,7 @@ impl Sum0KesSig {
         Ok(Self(EdSignature::from(signature)))
     }
 
+    /// Return `Self` as a byte array.
     pub fn to_bytes(&self) -> [u8; Self::SIZE] {
         self.0.to_bytes()
     }
