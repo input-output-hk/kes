@@ -361,7 +361,7 @@ dependencies = [
  "ed25519-dalek",
  "quickcheck",
  "quickcheck_macros",
- "rand",
+ "rand_core",
  "versionisator",
  "zeroize",
 ]
@@ -476,9 +476,9 @@ dependencies = [
 
 [[package]]
 name = "ppv-lite86"
-version = "0.2.6"
+version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74490b50b9fbe561ac330df47c08f3f33073d2d00c150f719147d7c54522fa1b"
+checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 
 [[package]]
 name = "proc-macro2"

@@ -55,7 +55,7 @@ fn haskell_depth_6() {
     let (mut skey, _) = Sum6Kes::keygen(&mut seed.to_owned());
     assert_eq!(skey.as_bytes(), h_key);
 
-    let h_1update_key:  &[u8; 608] = include_bytes!("data/key6update1.bin");
+    let h_1update_key: &[u8; 608] = include_bytes!("data/key6update1.bin");
     skey.update(0).unwrap();
     assert_eq!(skey.as_bytes(), h_1update_key);
 }
@@ -99,4 +99,3 @@ fn haskell_signature_6_update_5() {
     let signature = skey.sign(5, message);
     assert_eq!(&signature.to_bytes(), h_signature);
 }
-

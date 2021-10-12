@@ -89,7 +89,10 @@ macro_rules! sum_kes {
                         let updated_key = $sk::keygen(&mut key_slice[$sk::SIZE..$sk::SIZE + 32]).0;
                         key_slice[..$sk::SIZE].copy_from_slice(updated_key.as_bytes());
                     }
-                    Ordering::Greater => $sk::update_slice(&mut key_slice[..$sk::SIZE], period - &Depth($depth).half())?,
+                    Ordering::Greater => $sk::update_slice(
+                        &mut key_slice[..$sk::SIZE],
+                        period - &Depth($depth).half(),
+                    )?,
                 }
 
                 Ok(())

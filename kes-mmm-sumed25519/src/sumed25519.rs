@@ -7,7 +7,7 @@ use blake2::VarBlake2b;
 use ed25519_dalek as ed25519;
 use ed25519_dalek::Signer;
 use ed25519_dalek::Verifier;
-use rand::{CryptoRng, RngCore};
+use rand_core::{CryptoRng, RngCore};
 
 /// todo: unclear what this is
 const USE_TRUNCATE: bool = false;

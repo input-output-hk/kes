@@ -1,5 +1,5 @@
 use kes_mmm_sumed25519::sumed25519 as kes;
-use rand::rngs::OsRng;
+use rand_core::OsRng;
 use std::env::args;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
