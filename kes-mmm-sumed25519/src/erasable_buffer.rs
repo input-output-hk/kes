@@ -33,14 +33,14 @@ macro_rules! sum_kes {
             type Sig = $signame;
 
             /// Function that takes a mutable
-            fn keygen_kes(master_seed: &mut [u8]) -> (Self, PublicKey) {
+            fn keygen(master_seed: &mut [u8]) -> (Self, PublicKey) {
                 let mut data = [0u8; Self::SIZE];
                 let (mut r0, mut seed) = Seed::split_slice(master_seed);
-                // We copy the seed before overwriting with zeros (in the `keygen_kes` call).
+                // We copy the seed before overwriting with zeros (in the `keygen` call).
                 data[$sk::SIZE..$sk::SIZE + 32].copy_from_slice(&seed);
 
-                let (sk_0, pk_0) = $sk::keygen_kes(&mut r0);
-                let (_, pk_1) = $sk::keygen_kes(&mut seed);
+                let (sk_0, pk_0) = $sk::keygen(&mut r0);
+                let (_, pk_1) = $sk::keygen(&mut seed);
 
                 let pk = hash(&pk_0, &pk_1);
 
@@ -52,13 +52,13 @@ macro_rules! sum_kes {
                 (Self(data), pk)
             }
 
-            fn sign_kes(&self, period: usize, m: &[u8]) -> Self::Sig {
+            fn sign(&self, period: usize, m: &[u8]) -> Self::Sig {
                 let t0 = Depth($depth).half();
                 let sk = $sk::from_bytes(&self.as_bytes()[..$sk::SIZE]).expect("Invalid key bytes");
                 let sigma = if period < t0 {
-                    sk.sign_kes(period, m)
+                    sk.sign(period, m)
                 } else {
-                    sk.sign_kes(period - t0, m)
+                    sk.sign(period - t0, m)
                 };
 
                 let lhs_pk =
@@ -74,21 +74,22 @@ macro_rules! sum_kes {
                 }
             }
 
-            fn update_kes(&mut self, period: usize) -> Result<(), Error> {
+            fn update(&mut self, period: usize) -> Result<(), Error> {
+                Self::update_slice(&mut self.0, period)
+            }
+
+            fn update_slice(key_slice: &mut [u8], period: usize) -> Result<(), Error> {
                 if period + 1 == Depth($depth).total() {
                     return Err(Error::KeyCannotBeUpdatedMore);
                 }
 
                 match (period + 1).cmp(&Depth($depth).half()) {
-                    Ordering::Less => {
-                        $sk::from_bytes(&self.as_bytes()[..$sk::SIZE])?.update_kes(period)?
-                    }
+                    Ordering::Less => $sk::update_slice(&mut key_slice[..$sk::SIZE], period)?,
                     Ordering::Equal => {
-                        let updated_key = $sk::keygen_kes(&mut self.0[$sk::SIZE..$sk::SIZE + 32]).0;
-                        self.0[..$sk::SIZE].copy_from_slice(updated_key.as_bytes());
+                        let updated_key = $sk::keygen(&mut key_slice[$sk::SIZE..$sk::SIZE + 32]).0;
+                        key_slice[..$sk::SIZE].copy_from_slice(updated_key.as_bytes());
                     }
-                    Ordering::Greater => $sk::from_bytes(&self.as_bytes()[..$sk::SIZE])?
-                        .update_kes(period - &Depth($depth).half())?,
+                    Ordering::Greater => $sk::update_slice(&mut key_slice[..$sk::SIZE], period - &Depth($depth).half())?,
                 }
 
                 Ok(())
@@ -96,16 +97,16 @@ macro_rules! sum_kes {
         }
 
         impl KesSig for $signame {
-            fn verify_kes(&self, period: usize, pk: &PublicKey, m: &[u8]) -> Result<(), Error> {
+            fn verify(&self, period: usize, pk: &PublicKey, m: &[u8]) -> Result<(), Error> {
                 if &hash(&self.lhs_pk, &self.rhs_pk) != pk {
                     return Err(Error::InvalidHashComparison);
                 }
 
                 if period < Depth($depth).half() {
-                    self.sigma.verify_kes(period, &self.lhs_pk, m)?;
+                    self.sigma.verify(period, &self.lhs_pk, m)?;
                 } else {
                     self.sigma
-                        .verify_kes(period - &Depth($depth).half(), &self.rhs_pk, m)?
+                        .verify(period - &Depth($depth).half(), &self.rhs_pk, m)?
                 }
 
                 Ok(())
@@ -251,27 +252,27 @@ mod test {
 
     #[test]
     fn buff_single() {
-        let (mut skey, pkey) = Sum1Kes::keygen_kes(&mut [0u8; 32]);
+        let (mut skey, pkey) = Sum1Kes::keygen(&mut [0u8; 32]);
         let dummy_message = b"tilin";
-        let sigma = skey.sign_kes(0, dummy_message);
+        let sigma = skey.sign(0, dummy_message);
 
-        assert!(sigma.verify_kes(0, &pkey, dummy_message).is_ok());
+        assert!(sigma.verify(0, &pkey, dummy_message).is_ok());
 
         // Key can be updated once
-        assert!(skey.update_kes(0).is_ok());
+        assert!(skey.update(0).is_ok());
     }
 
     #[test]
     fn buff_4() {
-        let (mut skey, pkey) = Sum4Kes::keygen_kes(&mut [0u8; 32]);
+        let (mut skey, pkey) = Sum4Kes::keygen(&mut [0u8; 32]);
         let dummy_message = b"tilin";
-        let sigma = skey.sign_kes(0, dummy_message);
+        let sigma = skey.sign(0, dummy_message);
 
-        assert!(sigma.verify_kes(0, &pkey, dummy_message).is_ok());
+        assert!(sigma.verify(0, &pkey, dummy_message).is_ok());
 
         // Key can be updated 2^4 - 1 times
         for period in 0..15 {
-            assert!(skey.update_kes(period).is_ok());
+            assert!(skey.update(period).is_ok());
         }
     }
 }

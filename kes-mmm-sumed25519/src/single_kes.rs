@@ -22,7 +22,7 @@ pub struct Sum0KesSig(pub(crate) EdSignature);
 impl KesSk for Sum0Kes {
     type Sig = Sum0KesSig;
 
-    fn keygen_kes(master_seed: &mut [u8]) -> (Self, PublicKey) {
+    fn keygen(master_seed: &mut [u8]) -> (Self, PublicKey) {
         let secret = EdSecretKey::from_bytes(master_seed)
             .expect("Seed is defined with 32 bytes, so it won't fail.");
         let public = (&secret).into();
@@ -33,7 +33,7 @@ impl KesSk for Sum0Kes {
         )
     }
 
-    fn sign_kes(&self, _: usize, m: &[u8]) -> Sum0KesSig {
+    fn sign(&self, _: usize, m: &[u8]) -> Sum0KesSig {
         let secret = EdSecretKey::from_bytes(&self.0)
             .expect("Seed is defined with 32 bytes, so it won't fail.");
         let public = (&secret).into();
@@ -41,13 +41,16 @@ impl KesSk for Sum0Kes {
         Sum0KesSig(ed_sk.sign(m))
     }
 
-    fn update_kes(&mut self, _: usize) -> Result<(), Error> {
+    fn update(&mut self, _: usize) -> Result<(), Error> {
+        Err(Error::KeyCannotBeUpdatedMore)
+    }
+    fn update_slice(_: &mut [u8], _: usize) -> Result<(), Error> {
         Err(Error::KeyCannotBeUpdatedMore)
     }
 }
 
 impl KesSig for Sum0KesSig {
-    fn verify_kes(&self, _: usize, pk: &PublicKey, m: &[u8]) -> Result<(), Error> {
+    fn verify(&self, _: usize, pk: &PublicKey, m: &[u8]) -> Result<(), Error> {
         let ed_pk = pk.to_ed25519()?;
         ed_pk.verify(m, &self.0).map_err(Error::from)
     }
