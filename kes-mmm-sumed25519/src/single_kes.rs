@@ -83,7 +83,6 @@ impl Sum0KesSig {
     pub const SIZE: usize = SIGNATURE_LENGTH;
 
     /// Convert a byte array into a signature
-    /// todo: failures.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.len() != Self::SIZE {
             return Err(Error::InvalidSecretKeySize(bytes.len()));
@@ -172,7 +171,6 @@ impl Sum0CompactKesSig {
     pub const SIZE: usize = SIGNATURE_LENGTH + PUBLIC_KEY_LENGTH;
 
     /// Convert a byte array into a signature
-    /// todo: failures.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.len() != Self::SIZE {
             return Err(Error::InvalidSecretKeySize(bytes.len()));

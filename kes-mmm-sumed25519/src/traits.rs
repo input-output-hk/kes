@@ -3,7 +3,6 @@ use crate::common::PublicKey;
 use crate::errors::Error;
 
 /// Trait that defined a Kes secret key
-/// todo: improve docs if we keep this public
 pub trait KesSk: Sized {
     /// Type of the associated signature
     type Sig;

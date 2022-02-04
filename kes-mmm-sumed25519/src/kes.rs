@@ -32,12 +32,12 @@ macro_rules! sum_kes {
         impl KesSk for $name {
             type Sig = $signame;
 
-            /// Function that takes a mutable
+            /// Function that takes a mutable seed, and generates the key pair. It overwrites
+            /// the seed with zeroes.
             fn keygen(master_seed: &mut [u8]) -> (Self, PublicKey) {
                 let mut data = [0u8; Self::SIZE];
                 let (mut r0, mut seed) = Seed::split_slice(master_seed);
                 // We copy the seed before overwriting with zeros (in the `keygen` call).
-                // todo: where do we overwrite with zeros
                 data[$sk::SIZE..$sk::SIZE + 32].copy_from_slice(&seed);
 
                 let (sk_0, pk_0) = $sk::keygen(&mut r0);
