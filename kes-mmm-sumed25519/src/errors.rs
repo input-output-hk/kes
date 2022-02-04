@@ -6,7 +6,7 @@ use ed25519_dalek as ed25519;
 /// Enum of error associated with KES signatures
 pub enum Error {
     /// This error occurs when a base signature (ed25519) is invalid.
-    Ed25519SignatureError(String),
+    Ed25519Signature(String),
     /// This error occurs when a slice of bytes is converted into a compressed
     /// point format, and it fails.
     Ed25519InvalidCompressedFormat,
@@ -30,6 +30,6 @@ pub enum Error {
 
 impl From<ed25519::SignatureError> for Error {
     fn from(sig: ed25519::SignatureError) -> Error {
-        Error::Ed25519SignatureError(format!("{:?}", sig))
+        Error::Ed25519Signature(format!("{:?}", sig))
     }
 }

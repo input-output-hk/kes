@@ -1,6 +1,6 @@
 //! Traits that define a KES signature instance
-use crate::errors::Error;
 use crate::common::PublicKey;
+use crate::errors::Error;
 
 /// Trait that defined a Kes secret key
 /// todo: improve docs if we keep this public
@@ -31,9 +31,9 @@ pub trait KesCompactSig: Sized {
     fn verify(&self, period: usize, pk: &PublicKey, m: &[u8]) -> Result<(), Error> {
         let pk_subtree = self.recompute(period, m)?;
         if pk == &pk_subtree {
-            return Ok(())
+            return Ok(());
         }
-        return Err(Error::InvalidHashComparison)
+        Err(Error::InvalidHashComparison)
     }
     /// Recompute the root of the subtree, and verify ed25519 if on leaf
     fn recompute(&self, period: usize, m: &[u8]) -> Result<PublicKey, Error>;

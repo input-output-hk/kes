@@ -38,10 +38,8 @@
 //!         B.writeFile "<PATH>/key6Sig5.bin" (rawSerialiseSigKES kesSignatureFive)
 //! ```
 //!
-use kes_mmm_sumed25519::erasable_buffer::*;
-use kes_mmm_sumed25519::single_kes::Sum0Kes;
-use kes_mmm_sumed25519::compact_kes::{Sum6CompactKes, Sum1CompactKes};
-use kes_mmm_sumed25519::compact_single_kes::Sum0CompactKes;
+use kes_mmm_sumed25519::kes::*;
+use kes_mmm_sumed25519::single_kes::{Sum0CompactKes, Sum0Kes};
 use kes_mmm_sumed25519::traits::KesSk;
 
 #[test]

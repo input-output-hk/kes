@@ -6,13 +6,11 @@
 //!
 #![warn(missing_docs, rust_2018_idioms)]
 
-pub mod common;
+mod common;
 #[macro_use]
 pub mod single_kes;
-pub mod compact_single_kes;
-pub mod erasable_buffer;
-pub mod compact_kes;
-pub mod errors;
+mod errors;
+pub mod kes;
 pub mod traits;
 
 /// Module to handle version environment variables.

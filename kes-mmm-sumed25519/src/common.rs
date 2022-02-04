@@ -1,13 +1,11 @@
 //! Structures common to all constructions of key evolving signatures
+use crate::errors::Error;
 use blake2::digest::{Update, VariableOutput};
 use blake2::VarBlake2b;
 use ed25519_dalek as ed25519;
-use crate::errors::Error;
 
 /// ED25519 secret key size
 pub const INDIVIDUAL_SECRET_SIZE: usize = 32;
-/// ED25519 public key size
-pub const INDIVIDUAL_PUBLIC_SIZE: usize = 32;
 /// ED25519 signature size
 pub const SIGMA_SIZE: usize = 64;
 
@@ -16,7 +14,7 @@ pub const PUBLIC_KEY_SIZE: usize = 32;
 
 /// Seed of a KES scheme.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Seed(pub(crate) [u8; 32]);
+pub struct Seed;
 
 /// KES public key, which is represented as an array of bytes. A `PublicKey`is the output
 /// of a Blake2b hash.
@@ -64,65 +62,9 @@ impl AsRef<[u8]> for PublicKey {
     }
 }
 
-impl AsRef<[u8]> for Seed {
-    fn as_ref(&self) -> &[u8] {
-        &self.0
-    }
-}
-
 impl Seed {
     /// Byte representation size of a `Seed`.
     pub const SIZE: usize = 32;
-
-    /// Create a zero seed
-    pub fn zero() -> Seed {
-        Seed([0u8; Self::SIZE])
-    }
-
-    /// Takes a mutable reference of `self` and overwrites it with zero
-    pub fn set_zero(&mut self) {
-        self.0.copy_from_slice(&[0u8; Self::SIZE])
-    }
-
-    /// Creates a `Seed` from a byte array of length `Self::SIZE`.
-    pub fn from_bytes(b: [u8; Self::SIZE]) -> Seed {
-        Seed(b)
-    }
-
-    /// Creates a `Seed` from a slice.
-    ///
-    /// # Panics
-    /// Function panics when `b.len() != Self::SIZE`.
-    pub fn from_slice(b: &[u8]) -> Seed {
-        assert_eq!(b.len(), Self::SIZE);
-        let mut out = [0u8; Self::SIZE];
-        out.copy_from_slice(b);
-        Seed(out)
-    }
-
-    /// Function that takes as input an existing seed, and splits it into two. To extend the seed,
-    /// the function hashes (0x01 || self.0) for the first part of the output, and (0x02 || self.0)
-    /// for the second part.
-    pub fn split_seed(&self) -> (Seed, Seed) {
-        let mut hleft = VarBlake2b::new(32).expect("valid size");
-        let mut hright = VarBlake2b::new(32).expect("valid size");
-
-        hleft.update(&[1]);
-        hleft.update(&self.0);
-
-        hright.update(&[2]);
-        hright.update(&self.0);
-
-        let mut o1 = [0u8; 32];
-        let mut o2 = [0u8; 32];
-
-        hleft.finalize_variable(|out| o1.copy_from_slice(out));
-        hright.finalize_variable(|out| o2.copy_from_slice(out));
-
-        let s1 = Seed::from_slice(&o1);
-        let s2 = Seed::from_slice(&o2);
-        (s1, s2)
-    }
 
     /// Function that takes as input a mutable slice, splits it into two, and overwrites the input
     /// slice with zeros.
@@ -182,20 +124,6 @@ impl PartialEq for Depth {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
-}
-
-/// Generate a Keypair for `Depth` = 0, i.e. for the standard signature scheme over which
-/// we rely (in this case, `ed25519`).
-pub fn leaf_keygen(r: &Seed) -> (ed25519::Keypair, PublicKey) {
-    let sk = ed25519::SecretKey::from_bytes(&r.0).unwrap();
-    let pk: ed25519::PublicKey = (&sk).into();
-    (
-        ed25519::Keypair {
-            secret: sk,
-            public: pk,
-        },
-        PublicKey::from_ed25519_publickey(&pk),
-    )
 }
 
 /// Hash two public keys using Blake2b

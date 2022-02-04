@@ -1,22 +1,24 @@
 #[macro_use]
 extern crate criterion;
-use criterion::{Criterion};
-use kes_mmm_sumed25519::common::{Depth};
-use kes_mmm_sumed25519::compact_kes::{Sum1CompactKes, Sum2CompactKes, Sum3CompactKes, Sum4CompactKes, Sum5CompactKes, Sum6CompactKes, Sum7CompactKes};
-use kes_mmm_sumed25519::traits::{KesSk, KesCompactSig};
+use criterion::Criterion;
+use kes_mmm_sumed25519::kes::{
+    Sum1CompactKes, Sum2CompactKes, Sum3CompactKes, Sum4CompactKes, Sum5CompactKes, Sum6CompactKes,
+    Sum7CompactKes,
+};
+use kes_mmm_sumed25519::traits::{KesCompactSig, KesSk};
 
-fn bench_keygen<KES: KesSk>(depth: Depth, c: &mut Criterion) {
+fn bench_keygen<KES: KesSk>(depth: usize, c: &mut Criterion) {
     let mut seed = [0u8; 32];
-    c.bench_function(format!("KeyGen with depth: {}", depth.0).as_str(), |b| {
+    c.bench_function(format!("KeyGen with depth: {}", depth).as_str(), |b| {
         b.iter(|| {
             KES::keygen(&mut seed);
         })
     });
 }
 
-fn update_with_depth<KES: KesSk>(depth: Depth, nb_update: usize, c: &mut Criterion) {
+fn update_with_depth<KES: KesSk>(depth: usize, nb_update: usize, c: &mut Criterion) {
     let mut seed = [0u8; 32];
-    c.bench_function(format!("Update with depth: {}", depth.0).as_str(), |b| {
+    c.bench_function(format!("Update with depth: {}", depth).as_str(), |b| {
         let (mut sk_orig, _) = KES::keygen(&mut seed);
         b.iter(|| {
             for period in 0..(nb_update - 1) {
@@ -26,12 +28,12 @@ fn update_with_depth<KES: KesSk>(depth: Depth, nb_update: usize, c: &mut Criteri
     });
 }
 
-fn update_with_depth_skip<KES: KesSk>(depth: Depth, nb_update_to_skip: usize, c: &mut Criterion) {
+fn update_with_depth_skip<KES: KesSk>(depth: usize, nb_update_to_skip: usize, c: &mut Criterion) {
     let mut seed = [0u8; 32];
     c.bench_function(
         format!(
             "Update with depth: {}, and nb_update_to_skip: {}",
-            depth.0, nb_update_to_skip
+            depth, nb_update_to_skip
         )
         .as_str(),
         |b| {
@@ -40,30 +42,28 @@ fn update_with_depth_skip<KES: KesSk>(depth: Depth, nb_update_to_skip: usize, c:
                 sk_orig.update(period).unwrap()
             }
 
-            b.iter(|| {
-                sk_orig.update(nb_update_to_skip).unwrap()
-            })
+            b.iter(|| sk_orig.update(nb_update_to_skip).unwrap())
         },
     );
 }
 
 fn keygen_depth1(c: &mut Criterion) {
-    bench_keygen::<Sum1CompactKes>(Depth(1), c)
+    bench_keygen::<Sum1CompactKes>(1, c)
 }
 fn keygen_depth2(c: &mut Criterion) {
-    bench_keygen::<Sum2CompactKes>(Depth(2), c)
+    bench_keygen::<Sum2CompactKes>(2, c)
 }
 fn keygen_depth3(c: &mut Criterion) {
-    bench_keygen::<Sum3CompactKes>(Depth(3), c)
+    bench_keygen::<Sum3CompactKes>(3, c)
 }
 fn keygen_depth4(c: &mut Criterion) {
-    bench_keygen::<Sum4CompactKes>(Depth(4), c)
+    bench_keygen::<Sum4CompactKes>(4, c)
 }
 fn keygen_depth6(c: &mut Criterion) {
-    bench_keygen::<Sum6CompactKes>(Depth(6), c)
+    bench_keygen::<Sum6CompactKes>(6, c)
 }
 fn keygen_depth7(c: &mut Criterion) {
-    bench_keygen::<Sum7CompactKes>(Depth(7), c)
+    bench_keygen::<Sum7CompactKes>(7, c)
 }
 
 fn sign_depth5(c: &mut Criterion) {
@@ -90,17 +90,17 @@ fn verify_depth7(c: &mut Criterion) {
 }
 
 fn update2_depth2(c: &mut Criterion) {
-    update_with_depth::<Sum2CompactKes>(Depth(2), 2, c)
+    update_with_depth::<Sum2CompactKes>(2, 2, c)
 }
 fn update4_depth4(c: &mut Criterion) {
-    update_with_depth::<Sum4CompactKes>(Depth(4), 4, c)
+    update_with_depth::<Sum4CompactKes>(4, 4, c)
 }
 fn update16_depth7(c: &mut Criterion) {
-    update_with_depth::<Sum7CompactKes>(Depth(7), 16, c)
+    update_with_depth::<Sum7CompactKes>(7, 16, c)
 }
 
 fn update128_depth7(c: &mut Criterion) {
-    update_with_depth_skip::<Sum7CompactKes>(Depth(7), (1 << 7) - 1, c)
+    update_with_depth_skip::<Sum7CompactKes>(7, (1 << 7) - 1, c)
 }
 
 criterion_group!(
