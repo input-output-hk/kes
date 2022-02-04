@@ -138,7 +138,7 @@ macro_rules! sum_compact_kes {
 
         impl $signame {
             /// Byte size of the signature
-            pub const SIZE: usize = SIGMA_SIZE + $depth * PUBLIC_KEY_SIZE;
+            pub const SIZE: usize = SIGMA_SIZE + ($depth + 1) * PUBLIC_KEY_SIZE;
 
             /// Convert the slice of bytes into `Self`.
             ///
