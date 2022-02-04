@@ -8,7 +8,7 @@
 
 mod common;
 #[macro_use]
-pub mod single_kes;
+mod single_kes;
 mod errors;
 pub mod kes;
 pub mod traits;

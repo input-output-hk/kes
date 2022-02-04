@@ -21,7 +21,6 @@
 //!     kesSk1 = genKeyKES @(Sum1KES Ed25519DSIGN Blake2b_256) seed
 //!     kesSk =  genKeyKES @(Sum6KES Ed25519DSIGN Blake2b_256) seed
 //!     kesSignature = signKES () 0 (Bytechar.pack "test message") kesSk
-//!     kesSkOneUpdate = fromJust (updateKES () kesSk 0)
 //!     kesSkTwoUpdate = fromJust (updateKES () kesSkOneUpdate 1)
 //!     kesSkThreeUpdate = fromJust (updateKES () kesSkTwoUpdate 2)
 //!     kesSkFourUpdate = fromJust (updateKES () kesSkThreeUpdate 3)
@@ -29,7 +28,6 @@
 //!     kesSignatureFive = signKES () 5 (Bytechar.pack "test message") kesSkFiveUpdate
 //!     
 //!     in do
-//!         B.writeFile "<PATH>/key0.bin" (rawSerialiseSignKeyKES kesSk0)
 //!         B.writeFile "<PATH>/key1.bin" (rawSerialiseSignKeyKES kesSk1)
 //!         B.writeFile "<PATH>/key6.bin" (rawSerialiseSignKeyKES kesSk)
 //!         B.writeFile "<PATH>/key6Sig.bin" (rawSerialiseSigKES kesSignature)
@@ -39,7 +37,6 @@
 //! ```
 //!
 use kes_mmm_sumed25519::kes::*;
-use kes_mmm_sumed25519::single_kes::{Sum0CompactKes, Sum0Kes};
 use kes_mmm_sumed25519::traits::KesSk;
 
 #[test]
@@ -64,15 +61,6 @@ fn haskell_depth_6() {
     let h_1update_key: &[u8; 608] = include_bytes!("data/key6update1.bin");
     skey.update(0).unwrap();
     assert_eq!(skey.as_bytes(), h_1update_key);
-}
-
-#[test]
-fn haskell_single() {
-    let h_key: &[u8; 32] = include_bytes!("data/key0.bin");
-
-    let seed = b"test string of 32 byte of lenght";
-    let (skey, _) = Sum0Kes::keygen(&mut seed.to_owned());
-    assert_eq!(skey.as_bytes(), h_key);
 }
 
 #[test]
@@ -128,15 +116,6 @@ fn haskell_compact_depth_6() {
     let h_1update_key: &[u8; 608] = include_bytes!("data/compactkey6update1.bin");
     skey.update(0).unwrap();
     assert_eq!(skey.as_bytes(), h_1update_key);
-}
-
-#[test]
-fn haskell_compact_single() {
-    let h_key: &[u8; 32] = include_bytes!("data/compactkey0.bin");
-
-    let seed = b"test string of 32 byte of lenght";
-    let (skey, _) = Sum0CompactKes::keygen(&mut seed.to_owned());
-    assert_eq!(skey.as_bytes(), h_key);
 }
 
 #[test]
