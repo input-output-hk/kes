@@ -452,7 +452,7 @@ impl SecretKey {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// KES public key, which is represented as an array of bytes. A `PublicKey`is the output
 /// of a Blake2b hash.
-pub struct PublicKey([u8; PUBLIC_KEY_SIZE]);
+pub struct PublicKey(pub(crate) [u8; PUBLIC_KEY_SIZE]);
 
 impl PublicKey {
     /// Compute a KES `PublicKey` from an ed25519 key. This function convers the ed25519

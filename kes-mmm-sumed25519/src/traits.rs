@@ -22,3 +22,19 @@ pub trait KesSig: Sized {
     /// Verify the signature
     fn verify(&self, period: usize, pk: &PublicKey, m: &[u8]) -> Result<(), Error>;
 }
+
+/// Trait that defined a CompactKES signature. Instead of recursively verifying, we simply
+/// verify once (equality with the root), and else we recompute the root of the subtree.
+/// When we reach the leaf, we also verify the ed25519 signature.
+pub trait KesCompactSig: Sized {
+    /// Verify the root equality
+    fn verify(&self, period: usize, pk: &PublicKey, m: &[u8]) -> Result<(), Error> {
+        let pk_subtree = self.recompute(period, m)?;
+        if pk == &pk_subtree {
+            return Ok(())
+        }
+        return Err(Error::InvalidHashComparison)
+    }
+    /// Recompute the root of the subtree, and verify ed25519 if on leaf
+    fn recompute(&self, period: usize, m: &[u8]) -> Result<PublicKey, Error>;
+}

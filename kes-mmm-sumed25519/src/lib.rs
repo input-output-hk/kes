@@ -15,7 +15,9 @@ extern crate quickcheck_macros;
 mod common;
 #[macro_use]
 pub mod single_kes;
+pub mod compact_single_kes;
 pub mod erasable_buffer;
+pub mod compact_kes;
 pub mod errors;
 pub mod sumed25519;
 pub mod traits;
