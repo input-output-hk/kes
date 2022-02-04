@@ -5,7 +5,7 @@
 use crate::common::{Depth, Seed};
 use crate::errors::Error;
 use crate::compact_single_kes::{Sum0CompactKes, Sum0CompactKesSig};
-use crate::sumed25519::{hash, PublicKey, INDIVIDUAL_SECRET_SIZE, PUBLIC_KEY_SIZE, SIGMA_SIZE};
+use crate::common::{hash, PublicKey, INDIVIDUAL_SECRET_SIZE, PUBLIC_KEY_SIZE, SIGMA_SIZE};
 use crate::traits::{KesCompactSig, KesSk};
 use std::cmp::Ordering;
 use zeroize::Zeroize;

@@ -6,20 +6,13 @@
 //!
 #![warn(missing_docs, rust_2018_idioms)]
 
-#[cfg(test)]
-extern crate quickcheck;
-#[cfg(test)]
-#[macro_use(quickcheck)]
-extern crate quickcheck_macros;
-
-mod common;
+pub mod common;
 #[macro_use]
 pub mod single_kes;
 pub mod compact_single_kes;
 pub mod erasable_buffer;
 pub mod compact_kes;
 pub mod errors;
-pub mod sumed25519;
 pub mod traits;
 
 /// Module to handle version environment variables.
@@ -33,6 +26,3 @@ pub mod version {
     /// Return the environment variable `CARGO_PKG_VERSION`.
     pub const PKG: &str = env!("CARGO_PKG_VERSION");
 }
-
-#[cfg(test)]
-mod sumrec;

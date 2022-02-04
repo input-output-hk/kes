@@ -1,6 +1,6 @@
 //! Traits that define a KES signature instance
 use crate::errors::Error;
-use crate::sumed25519::PublicKey;
+use crate::common::PublicKey;
 
 /// Trait that defined a Kes secret key
 /// todo: improve docs if we keep this public

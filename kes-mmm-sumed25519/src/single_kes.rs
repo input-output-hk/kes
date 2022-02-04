@@ -2,7 +2,7 @@
 //! mechanism which is considered a KES signature scheme with a single period. In this
 //! case, the single instance is ed25519.
 use crate::errors::Error;
-use crate::sumed25519::PublicKey;
+use crate::common::PublicKey;
 use crate::traits::{KesSig, KesSk};
 use ed25519_dalek::{
     Keypair as EdKeypair, SecretKey as EdSecretKey, Signature as EdSignature, Signer, Verifier,

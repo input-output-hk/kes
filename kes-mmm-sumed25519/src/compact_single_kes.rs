@@ -6,7 +6,7 @@
 //! change allows us for a more compact signature verification in KES instances with more
 //! periods.
 use crate::errors::Error;
-use crate::sumed25519::PublicKey;
+use crate::common::PublicKey;
 use crate::traits::{KesSk, KesCompactSig};
 use ed25519_dalek::{
     Keypair as EdKeypair,

@@ -1,12 +1,68 @@
 //! Structures common to all constructions of key evolving signatures
-use crate::sumed25519::PublicKey;
 use blake2::digest::{Update, VariableOutput};
 use blake2::VarBlake2b;
 use ed25519_dalek as ed25519;
+use crate::errors::Error;
+
+/// ED25519 secret key size
+pub const INDIVIDUAL_SECRET_SIZE: usize = 32;
+/// ED25519 public key size
+pub const INDIVIDUAL_PUBLIC_SIZE: usize = 32;
+/// ED25519 signature size
+pub const SIGMA_SIZE: usize = 64;
+
+/// KES public key size (which equals the size of the output of the Hash).
+pub const PUBLIC_KEY_SIZE: usize = 32;
 
 /// Seed of a KES scheme.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Seed(pub(crate) [u8; 32]);
+
+/// KES public key, which is represented as an array of bytes. A `PublicKey`is the output
+/// of a Blake2b hash.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PublicKey(pub(crate) [u8; PUBLIC_KEY_SIZE]);
+
+impl PublicKey {
+    /// Compute a KES `PublicKey` from an ed25519 key. This function convers the ed25519
+    /// key into its byte representation and returns it as `Self`.
+    pub fn from_ed25519_publickey(public: &ed25519::PublicKey) -> Self {
+        let mut out = [0u8; PUBLIC_KEY_SIZE];
+        out.copy_from_slice(public.as_bytes());
+        PublicKey(out)
+    }
+
+    pub(crate) fn to_ed25519(&self) -> Result<ed25519::PublicKey, Error> {
+        ed25519::PublicKey::from_bytes(self.as_bytes())
+            .or(Err(Error::Ed25519InvalidCompressedFormat))
+    }
+
+    /// Return `Self` as its byte representation.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+
+    /// Tries to convert a slice of `bytes` as `Self`.
+    ///
+    /// # Errors
+    /// This function returns an error if the length of `bytes` is not equal to
+    /// `PUBLIC_KEY_SIZE`.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.len() == PUBLIC_KEY_SIZE {
+            let mut v = [0u8; PUBLIC_KEY_SIZE];
+            v.copy_from_slice(bytes);
+            Ok(PublicKey(v))
+        } else {
+            Err(Error::InvalidPublicKeySize(bytes.len()))
+        }
+    }
+}
+
+impl AsRef<[u8]> for PublicKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
 
 impl AsRef<[u8]> for Seed {
     fn as_ref(&self) -> &[u8] {
@@ -140,4 +196,15 @@ pub fn leaf_keygen(r: &Seed) -> (ed25519::Keypair, PublicKey) {
         },
         PublicKey::from_ed25519_publickey(&pk),
     )
+}
+
+/// Hash two public keys using Blake2b
+pub fn hash(pk1: &PublicKey, pk2: &PublicKey) -> PublicKey {
+    let mut out = [0u8; 32];
+    let mut h = VarBlake2b::new(32).expect("valid size");
+    h.update(&pk1.0);
+    h.update(&pk2.0);
+
+    h.finalize_variable(|res| out.copy_from_slice(res));
+    PublicKey(out)
 }
