@@ -1,5 +1,26 @@
-[workspace]
-members = [
-    "kes-mmm-sumed25519",
-    "kes-mmm-sumed25519-c",
-]
+[package]
+name = "kes-mmm-sumed25519"
+version = "0.1.0"
+authors = ["Vincent Hanquez <vincent.hanquez@iohk.io>"]
+edition = "2018"
+categories = [ "cryptography" ]
+description = "Key Evolving Signature for ouroboros praos"
+keywords = [ "Crypto", "KES", "Ed25519", "MMM", "Sum" ]
+
+[dependencies]
+ed25519-dalek = "1"
+rand_core = "0.5"
+blake2 = "0.9"
+zeroize = "1.4"
+
+[dev-dependencies]
+quickcheck = "0.9"
+quickcheck_macros = "0.9"
+criterion = "0.3.5"
+
+[build-dependencies]
+versionisator = "1.0.2"
+
+[[bench]]
+harness = false
+name = "mmm-sumed25519"
