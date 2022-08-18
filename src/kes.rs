@@ -4,8 +4,8 @@
 //! The goal is to provide a similar construction to what is achieved in [sumed25519](./../sumed25519)
 //! while maintaining code simplicity, and a smaller crate to facilitate audit and maintenance.
 
-use crate::common::{hash, PublicKey, INDIVIDUAL_SECRET_SIZE, PUBLIC_KEY_SIZE, SIGMA_SIZE};
 use crate::common::{Depth, Seed};
+use crate::common::{PublicKey, INDIVIDUAL_SECRET_SIZE, PUBLIC_KEY_SIZE, SIGMA_SIZE};
 use crate::errors::Error;
 use crate::single_kes::{Sum0CompactKes, Sum0CompactKesSig, Sum0Kes, Sum0KesSig};
 use crate::traits::{KesCompactSig, KesSig, KesSk};
@@ -35,6 +35,11 @@ macro_rules! sum_kes {
             /// Function that takes a mutable seed, and generates the key pair. It overwrites
             /// the seed with zeroes.
             fn keygen(master_seed: &mut [u8]) -> (Self, PublicKey) {
+                assert_eq!(
+                    master_seed.len(),
+                    Seed::SIZE,
+                    "Size of the seed is incorrect."
+                );
                 let mut data = [0u8; Self::SIZE];
                 let (mut r0, mut seed) = Seed::split_slice(master_seed);
                 // We copy the seed before overwriting with zeros (in the `keygen` call).
@@ -43,7 +48,7 @@ macro_rules! sum_kes {
                 let (sk_0, pk_0) = $sk::keygen(&mut r0);
                 let (_, pk_1) = $sk::keygen(&mut seed);
 
-                let pk = hash(&pk_0, &pk_1);
+                let pk = pk_0.hash_pair(&pk_1);
 
                 // We write the keys to the main data.
                 data[..$sk::SIZE].copy_from_slice(&sk_0.0);
@@ -102,7 +107,7 @@ macro_rules! sum_kes {
 
         impl KesSig for $signame {
             fn verify(&self, period: usize, pk: &PublicKey, m: &[u8]) -> Result<(), Error> {
-                if &hash(&self.lhs_pk, &self.rhs_pk) != pk {
+                if &self.lhs_pk.hash_pair(&self.rhs_pk) != pk {
                     return Err(Error::InvalidHashComparison);
                 }
 
@@ -213,6 +218,11 @@ macro_rules! sum_compact_kes {
 
             /// Function that takes a mutable
             fn keygen(master_seed: &mut [u8]) -> (Self, PublicKey) {
+                assert_eq!(
+                    master_seed.len(),
+                    Seed::SIZE,
+                    "Size of the seed is incorrect."
+                );
                 let mut data = [0u8; Self::SIZE];
                 let (mut r0, mut seed) = Seed::split_slice(master_seed);
                 // We copy the seed before overwriting with zeros (in the `keygen` call).
@@ -221,7 +231,7 @@ macro_rules! sum_compact_kes {
                 let (sk_0, pk_0) = $sk::keygen(&mut r0);
                 let (_, pk_1) = $sk::keygen(&mut seed);
 
-                let pk = hash(&pk_0, &pk_1);
+                let pk = pk_0.hash_pair(&pk_1);
 
                 // We write the keys to the main data.
                 data[..$sk::SIZE].copy_from_slice(&sk_0.0);
@@ -276,10 +286,10 @@ macro_rules! sum_compact_kes {
             fn recompute(&self, period: usize, m: &[u8]) -> Result<PublicKey, Error> {
                 if period < Depth($depth).half() {
                     let recomputed_key = self.sigma.recompute(period, m)?;
-                    Ok(hash(&recomputed_key, &self.pk))
+                    Ok(recomputed_key.hash_pair(&self.pk))
                 } else {
                     let recomputed_key = self.sigma.recompute(period - &Depth($depth).half(), m)?;
-                    Ok(hash(&self.pk, &recomputed_key))
+                    Ok(self.pk.hash_pair(&recomputed_key))
                 }
             }
         }

@@ -44,6 +44,7 @@ impl KesSk for Sum0Kes {
     fn update(&mut self, _: usize) -> Result<(), Error> {
         Err(Error::KeyCannotBeUpdatedMore)
     }
+
     fn update_slice(_: &mut [u8], _: usize) -> Result<(), Error> {
         Err(Error::KeyCannotBeUpdatedMore)
     }
@@ -56,7 +57,6 @@ impl KesSig for Sum0KesSig {
     }
 }
 
-// Serialisation
 impl Sum0Kes {
     /// Size of secret key of Single KES instance
     pub const SIZE: usize = SECRET_KEY_LENGTH;
@@ -144,7 +144,6 @@ impl KesCompactSig for Sum0CompactKesSig {
     }
 }
 
-// Serialisation
 impl Sum0CompactKes {
     /// Size of secret key of Single KES instance
     pub const SIZE: usize = SECRET_KEY_LENGTH;

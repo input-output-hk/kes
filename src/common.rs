@@ -22,7 +22,7 @@ pub struct Seed;
 pub struct PublicKey(pub(crate) [u8; PUBLIC_KEY_SIZE]);
 
 impl PublicKey {
-    /// Compute a KES `PublicKey` from an ed25519 key. This function convers the ed25519
+    /// Compute a KES `PublicKey` from an ed25519 key. This function converts the ed25519
     /// key into its byte representation and returns it as `Self`.
     pub fn from_ed25519_publickey(public: &ed25519::PublicKey) -> Self {
         let mut out = [0u8; PUBLIC_KEY_SIZE];
@@ -54,6 +54,17 @@ impl PublicKey {
             Err(Error::InvalidPublicKeySize(bytes.len()))
         }
     }
+
+    /// Hash two public keys using Blake2b
+    pub fn hash_pair(&self, other: &PublicKey) -> PublicKey {
+        let mut out = [0u8; 32];
+        let mut h = VarBlake2b::new(32).expect("valid size");
+        h.update(&self.0);
+        h.update(&other.0);
+
+        h.finalize_variable(|res| out.copy_from_slice(res));
+        PublicKey(out)
+    }
 }
 
 impl AsRef<[u8]> for PublicKey {
@@ -69,6 +80,7 @@ impl Seed {
     /// Function that takes as input a mutable slice, splits it into two, and overwrites the input
     /// slice with zeros.
     pub fn split_slice(bytes: &mut [u8]) -> ([u8; 32], [u8; 32]) {
+        assert_eq!(bytes.len(), Self::SIZE, "Size of the seed is incorrect.");
         let mut left_seed = [0u8; Self::SIZE];
         let mut right_seed = [0u8; Self::SIZE];
 
@@ -80,8 +92,6 @@ impl Seed {
 
         hright.update(&[2]);
         hright.update(&bytes);
-
-        // finalize() consumes the hasher instance.
 
         hleft.finalize_variable(|out| left_seed.copy_from_slice(out));
         hright.finalize_variable(|out| right_seed.copy_from_slice(out));
@@ -124,15 +134,4 @@ impl PartialEq for Depth {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
-}
-
-/// Hash two public keys using Blake2b
-pub fn hash(pk1: &PublicKey, pk2: &PublicKey) -> PublicKey {
-    let mut out = [0u8; 32];
-    let mut h = VarBlake2b::new(32).expect("valid size");
-    h.update(&pk1.0);
-    h.update(&pk2.0);
-
-    h.finalize_variable(|res| out.copy_from_slice(res));
-    PublicKey(out)
 }
