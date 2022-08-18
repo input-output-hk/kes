@@ -17,6 +17,25 @@ pub trait KesSk: Sized {
 }
 
 /// Trait that defines a KES signature
+///
+/// # Example
+/// ```
+/// use kes_summed_ed25519::kes::Sum6Kes;
+/// use kes_summed_ed25519::traits::{KesSig, KesSk};
+///
+/// fn main() {
+///     let (mut skey, pkey) = Sum6Kes::keygen(&mut [0u8; 32]);
+///     let dummy_message = b"tilin";
+///     let sigma = skey.sign(0, dummy_message);
+///
+///     assert!(sigma.verify(0, &pkey, dummy_message).is_ok());
+///
+///     // Key can be updated 63 times
+///     for i in 0..63 {
+///         assert!(skey.update(i).is_ok());
+///     }
+/// }
+/// ```
 pub trait KesSig: Sized {
     /// Verify the signature
     fn verify(&self, period: usize, pk: &PublicKey, m: &[u8]) -> Result<(), Error>;

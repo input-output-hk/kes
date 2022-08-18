@@ -36,8 +36,8 @@
 //!         B.writeFile "<PATH>/key6Sig5.bin" (rawSerialiseSigKES kesSignatureFive)
 //! ```
 //!
-use kes_mmm_sumed25519::kes::*;
-use kes_mmm_sumed25519::traits::KesSk;
+use kes_summed_ed25519::kes::*;
+use kes_summed_ed25519::traits::KesSk;
 
 #[test]
 fn haskel_depth_1() {

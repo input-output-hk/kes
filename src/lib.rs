@@ -43,7 +43,6 @@
 //! of the Merkle tree.
 
 mod common;
-#[macro_use]
 mod single_kes;
 mod errors;
 pub mod kes;

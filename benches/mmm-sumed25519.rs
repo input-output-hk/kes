@@ -1,11 +1,11 @@
 #[macro_use]
 extern crate criterion;
 use criterion::Criterion;
-use kes_mmm_sumed25519::kes::{
+use kes_summed_ed25519::kes::{
     Sum1CompactKes, Sum2CompactKes, Sum3CompactKes, Sum4CompactKes, Sum5CompactKes, Sum6CompactKes,
     Sum7CompactKes,
 };
-use kes_mmm_sumed25519::traits::{KesCompactSig, KesSk};
+use kes_summed_ed25519::traits::{KesCompactSig, KesSk};
 
 fn bench_keygen<KES: KesSk>(depth: usize, c: &mut Criterion) {
     let mut seed = [0u8; 32];

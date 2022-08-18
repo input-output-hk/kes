@@ -1,8 +1,11 @@
 [package]
-name = "kes-mmm-sumed25519"
+name = "kes-summed-ed25519"
 version = "0.1.0"
-authors = ["Vincent Hanquez <vincent.hanquez@iohk.io>"]
+authors = ["Vincent Hanquez <vincent.hanquez@iohk.io>", "Iñigo Querejeta Azurmendi <querejeta.azurmendi@iohk.io>"]
 edition = "2018"
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/input-output-hk/kes"
 categories = [ "cryptography" ]
 description = "Key Evolving Signature for ouroboros praos"
 keywords = [ "Crypto", "KES", "Ed25519", "MMM", "Sum" ]
@@ -14,12 +17,7 @@ blake2 = "0.9"
 zeroize = "1.4"
 
 [dev-dependencies]
-quickcheck = "0.9"
-quickcheck_macros = "0.9"
 criterion = "0.3.5"
-
-[build-dependencies]
-versionisator = "1.0.2"
 
 [[bench]]
 harness = false

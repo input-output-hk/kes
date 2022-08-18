@@ -6,7 +6,7 @@ use crate::errors::Error;
 use crate::traits::{KesCompactSig, KesSig, KesSk};
 use ed25519_dalek::{
     Keypair as EdKeypair, PublicKey as EdPublicKey, SecretKey as EdSecretKey,
-    Signature as EdSignature, Signer, Verifier, SIGNATURE_LENGTH,
+    Signature as EdSignature, Signer, SIGNATURE_LENGTH,
 };
 pub use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 use zeroize::Zeroize;
@@ -53,7 +53,7 @@ impl KesSk for Sum0Kes {
 impl KesSig for Sum0KesSig {
     fn verify(&self, _: usize, pk: &PublicKey, m: &[u8]) -> Result<(), Error> {
         let ed_pk = pk.to_ed25519()?;
-        ed_pk.verify(m, &self.0).map_err(Error::from)
+        ed_pk.verify_strict(m, &self.0).map_err(Error::from)
     }
 }
 
@@ -139,7 +139,7 @@ impl KesSk for Sum0CompactKes {
 
 impl KesCompactSig for Sum0CompactKesSig {
     fn recompute(&self, _: usize, m: &[u8]) -> Result<PublicKey, Error> {
-        self.1.verify(m, &self.0).map_err(Error::from)?;
+        self.1.verify_strict(m, &self.0)?;
         Ok(PublicKey(self.1.to_bytes()))
     }
 }
