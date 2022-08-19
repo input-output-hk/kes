@@ -12,15 +12,20 @@ use crate::traits::{KesCompactSig, KesSig, KesSk};
 use std::cmp::Ordering;
 use zeroize::Zeroize;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 macro_rules! sum_kes {
     ($name:ident, $signame:ident, $sk:ident, $sigma:ident, $depth:expr, $doc:expr) => {
-        #[derive(Zeroize)]
+        #[derive(Debug, Clone, Zeroize)]
         #[zeroize(drop)]
         #[doc=$doc]
         pub struct $name(
             [u8; INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2)],
         );
 
+        #[derive(Debug, Clone)]
+        #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
         /// Structure that represents a KES signature.
         pub struct $signame {
             sigma: $sigma,
@@ -199,13 +204,15 @@ macro_rules! sum_kes {
 }
 macro_rules! sum_compact_kes {
     ($name:ident, $signame:ident, $sk:ident, $sigma:ident, $depth:expr, $doc:expr) => {
-        #[derive(Zeroize)]
+        #[derive(Debug, Clone, Zeroize)]
         #[zeroize(drop)]
         #[doc=$doc]
         pub struct $name(
             [u8; INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2)],
         );
 
+        #[derive(Debug, Clone)]
+        #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
         /// Structure that represents a KES signature.
         pub struct $signame {
             sigma: $sigma,
