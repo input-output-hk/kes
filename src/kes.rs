@@ -24,7 +24,7 @@ macro_rules! sum_kes {
             [u8; INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2)],
         );
 
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, PartialEq, Eq)]
         #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
         /// Structure that represents a KES signature.
         pub struct $signame {
@@ -211,7 +211,7 @@ macro_rules! sum_compact_kes {
             [u8; INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2)],
         );
 
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, PartialEq, Eq)]
         #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
         /// Structure that represents a KES signature.
         pub struct $signame {
@@ -537,5 +537,116 @@ mod test {
         for period in 0..15 {
             assert!(skey.update(period).is_ok());
         }
+    }
+}
+
+#[cfg(feature = "serde")]
+#[cfg(test)]
+mod test_serde {
+    use super::*;
+
+    #[test]
+    fn test_serde_1() {
+        let (skey, pkey) = Sum1Kes::keygen(&mut [0u8; 32]);
+
+        let pkey_bytes = serde_json::to_string(&pkey).unwrap();
+        let deser_pkey: PublicKey = serde_json::from_str(&pkey_bytes).unwrap();
+
+        assert_eq!(pkey, deser_pkey);
+
+        let dummy_message = b"tolon";
+        let sigma = skey.sign(0, dummy_message);
+
+        let sigma_bytes = serde_json::to_string(&sigma).unwrap();
+        let deser_sigma: Sum1KesSig = serde_json::from_str(&sigma_bytes).unwrap();
+
+        assert_eq!(sigma, deser_sigma);
+        assert!(deser_sigma.verify(0, &pkey, dummy_message).is_ok());
+
+        let (skey, pkey) = Sum1CompactKes::keygen(&mut [0u8; 32]);
+
+        let pkey_bytes = serde_json::to_string(&pkey).unwrap();
+        let deser_pkey: PublicKey = serde_json::from_str(&pkey_bytes).unwrap();
+
+        assert_eq!(pkey, deser_pkey);
+
+        let dummy_message = b"tolon";
+        let sigma = skey.sign(0, dummy_message);
+
+        let sigma_bytes = serde_json::to_string(&sigma).unwrap();
+        let deser_sigma: Sum1CompactKesSig = serde_json::from_str(&sigma_bytes).unwrap();
+
+        assert_eq!(sigma, deser_sigma);
+        assert!(deser_sigma.verify(0, &pkey, dummy_message).is_ok());
+    }
+
+    #[test]
+    fn test_serde_4() {
+        let (skey, pkey) = Sum4Kes::keygen(&mut [0u8; 32]);
+
+        let pkey_bytes = serde_json::to_string(&pkey).unwrap();
+        let deser_pkey: PublicKey = serde_json::from_str(&pkey_bytes).unwrap();
+
+        assert_eq!(pkey, deser_pkey);
+
+        let dummy_message = b"tolon";
+        let sigma = skey.sign(0, dummy_message);
+
+        let sigma_bytes = serde_json::to_string(&sigma).unwrap();
+        let deser_sigma: Sum4KesSig = serde_json::from_str(&sigma_bytes).unwrap();
+
+        assert_eq!(sigma, deser_sigma);
+        assert!(deser_sigma.verify(0, &pkey, dummy_message).is_ok());
+
+        let (skey, pkey) = Sum4CompactKes::keygen(&mut [0u8; 32]);
+
+        let pkey_bytes = serde_json::to_string(&pkey).unwrap();
+        let deser_pkey: PublicKey = serde_json::from_str(&pkey_bytes).unwrap();
+
+        assert_eq!(pkey, deser_pkey);
+
+        let dummy_message = b"tolon";
+        let sigma = skey.sign(0, dummy_message);
+
+        let sigma_bytes = serde_json::to_string(&sigma).unwrap();
+        let deser_sigma: Sum4CompactKesSig = serde_json::from_str(&sigma_bytes).unwrap();
+
+        assert_eq!(sigma, deser_sigma);
+        assert!(deser_sigma.verify(0, &pkey, dummy_message).is_ok());
+    }
+
+    #[test]
+    fn test_serde_6() {
+        let (skey, pkey) = Sum6Kes::keygen(&mut [0u8; 32]);
+
+        let pkey_bytes = serde_json::to_string(&pkey).unwrap();
+        let deser_pkey: PublicKey = serde_json::from_str(&pkey_bytes).unwrap();
+
+        assert_eq!(pkey, deser_pkey);
+
+        let dummy_message = b"tolon";
+        let sigma = skey.sign(0, dummy_message);
+
+        let sigma_bytes = serde_json::to_string(&sigma).unwrap();
+        let deser_sigma: Sum6KesSig = serde_json::from_str(&sigma_bytes).unwrap();
+
+        assert_eq!(sigma, deser_sigma);
+        assert!(deser_sigma.verify(0, &pkey, dummy_message).is_ok());
+
+        let (skey, pkey) = Sum6CompactKes::keygen(&mut [0u8; 32]);
+
+        let pkey_bytes = serde_json::to_string(&pkey).unwrap();
+        let deser_pkey: PublicKey = serde_json::from_str(&pkey_bytes).unwrap();
+
+        assert_eq!(pkey, deser_pkey);
+
+        let dummy_message = b"tolon";
+        let sigma = skey.sign(0, dummy_message);
+
+        let sigma_bytes = serde_json::to_string(&sigma).unwrap();
+        let deser_sigma: Sum6CompactKesSig = serde_json::from_str(&sigma_bytes).unwrap();
+
+        assert_eq!(sigma, deser_sigma);
+        assert!(deser_sigma.verify(0, &pkey, dummy_message).is_ok());
     }
 }
