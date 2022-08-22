@@ -23,7 +23,11 @@ pub struct Seed;
 /// of a Blake2b hash.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct PublicKey(pub(crate) [u8; PUBLIC_KEY_SIZE]);
+#[cfg_attr(feature = "serde", serde_as)]
+pub struct PublicKey(
+    #[cfg_attr(feature = "serde", serde_as(as = "Bytes"))]
+    pub(crate) [u8; PUBLIC_KEY_SIZE]
+);
 
 impl PublicKey {
     /// Compute a KES `PublicKey` from an ed25519 key. This function converts the ed25519

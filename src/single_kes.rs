@@ -17,13 +17,21 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Zeroize)]
 #[zeroize(drop)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde_as)]
 /// Single KES instance, which is a wrapper over ed25519.
-pub struct Sum0Kes(pub(crate) [u8; SECRET_KEY_LENGTH]);
+pub struct Sum0Kes(
+    #[cfg_attr(feature = "serde", serde_as(as = "Bytes"))]
+    pub(crate) [u8; SECRET_KEY_LENGTH]
+);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-/// Singke KES Signature instance, which is a wrapper over ed25519.
-pub struct Sum0KesSig(pub(crate) EdSignature);
+#[cfg_attr(feature = "serde", serde_as)]
+/// Single KES Signature instance, which is a wrapper over ed25519.
+pub struct Sum0KesSig(
+    #[cfg_attr(feature = "serde", serde_as(as = "Bytes"))]
+    pub(crate) EdSignature
+);
 
 impl KesSk for Sum0Kes {
     type Sig = Sum0KesSig;
@@ -108,13 +116,21 @@ impl Sum0KesSig {
 #[derive(Debug, Clone, Zeroize)]
 #[zeroize(drop)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde_as)]
 /// Single KES instance, which is a wrapper over ed25519.
-pub struct Sum0CompactKes(pub(crate) [u8; SECRET_KEY_LENGTH]);
+pub struct Sum0CompactKes(
+    #[cfg_attr(feature = "serde", serde_as(as = "Bytes"))]
+    pub(crate) [u8; SECRET_KEY_LENGTH]
+);
 
 /// Singke KES Signature instance, which is a wrapper over ed25519.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct Sum0CompactKesSig(pub(crate) EdSignature, pub(crate) EdPublicKey);
+#[cfg_attr(feature = "serde", serde_as)]
+pub struct Sum0CompactKesSig(
+    #[cfg_attr(feature = "serde", serde_as(as = "Bytes"))]
+    pub(crate) EdSignature, pub(crate) EdPublicKey
+);
 
 impl KesSk for Sum0CompactKes {
     type Sig = Sum0CompactKesSig;
