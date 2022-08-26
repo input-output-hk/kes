@@ -4,7 +4,7 @@ use blake2::digest::{Update, VariableOutput};
 use blake2::VarBlake2b;
 use ed25519_dalek as ed25519;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serde_enabled")]
 use serde::{Deserialize, Serialize};
 
 /// ED25519 secret key size
@@ -22,11 +22,10 @@ pub struct Seed;
 /// KES public key, which is represented as an array of bytes. A `PublicKey`is the output
 /// of a Blake2b hash.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde_as)]
+#[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde_enabled", serde_as)]
 pub struct PublicKey(
-    #[cfg_attr(feature = "serde", serde_as(as = "Bytes"))]
-    pub(crate) [u8; PUBLIC_KEY_SIZE]
+    #[cfg_attr(feature = "serde_enabled", serde_as(as = "Bytes"))] pub(crate) [u8; PUBLIC_KEY_SIZE],
 );
 
 impl PublicKey {

@@ -11,26 +11,25 @@ use ed25519_dalek::{
 pub use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 use zeroize::Zeroize;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serde_enabled")]
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Zeroize)]
 #[zeroize(drop)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde_as)]
+#[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde_enabled", serde_as)]
 /// Single KES instance, which is a wrapper over ed25519.
 pub struct Sum0Kes(
-    #[cfg_attr(feature = "serde", serde_as(as = "Bytes"))]
-    pub(crate) [u8; SECRET_KEY_LENGTH]
+    #[cfg_attr(feature = "serde_enabled", serde_as(as = "Bytes"))]
+    pub(crate)  [u8; SECRET_KEY_LENGTH],
 );
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde_as)]
+#[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde_enabled", serde_as)]
 /// Single KES Signature instance, which is a wrapper over ed25519.
 pub struct Sum0KesSig(
-    #[cfg_attr(feature = "serde", serde_as(as = "Bytes"))]
-    pub(crate) EdSignature
+    #[cfg_attr(feature = "serde_enabled", serde_as(as = "Bytes"))] pub(crate) EdSignature,
 );
 
 impl KesSk for Sum0Kes {
@@ -115,21 +114,21 @@ impl Sum0KesSig {
 
 #[derive(Debug, Clone, Zeroize)]
 #[zeroize(drop)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde_as)]
+#[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde_enabled", serde_as)]
 /// Single KES instance, which is a wrapper over ed25519.
 pub struct Sum0CompactKes(
-    #[cfg_attr(feature = "serde", serde_as(as = "Bytes"))]
-    pub(crate) [u8; SECRET_KEY_LENGTH]
+    #[cfg_attr(feature = "serde_enabled", serde_as(as = "Bytes"))]
+    pub(crate)  [u8; SECRET_KEY_LENGTH],
 );
 
 /// Singke KES Signature instance, which is a wrapper over ed25519.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde_as)]
+#[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde_enabled", serde_as)]
 pub struct Sum0CompactKesSig(
-    #[cfg_attr(feature = "serde", serde_as(as = "Bytes"))]
-    pub(crate) EdSignature, pub(crate) EdPublicKey
+    #[cfg_attr(feature = "serde_enabled", serde_as(as = "Bytes"))] pub(crate) EdSignature,
+    pub(crate) EdPublicKey,
 );
 
 impl KesSk for Sum0CompactKes {

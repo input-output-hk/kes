@@ -12,20 +12,25 @@ use crate::traits::{KesCompactSig, KesSig, KesSk};
 use std::cmp::Ordering;
 use zeroize::Zeroize;
 
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde_enabled")]
+use {
+    serde::{Deserialize, Serialize},
+    serde_with::{As, Bytes},
+};
 
 macro_rules! sum_kes {
     ($name:ident, $signame:ident, $sk:ident, $sigma:ident, $depth:expr, $doc:expr) => {
         #[derive(Debug, Clone, Zeroize)]
         #[zeroize(drop)]
+        #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
         #[doc=$doc]
         pub struct $name(
+            #[cfg_attr(feature = "serde_enabled", serde(with = "As::<Bytes>"))]
             [u8; INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2)],
         );
 
         #[derive(Debug, Clone, PartialEq, Eq)]
-        #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+        #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
         /// Structure that represents a KES signature.
         pub struct $signame {
             sigma: $sigma,
@@ -212,7 +217,7 @@ macro_rules! sum_compact_kes {
         );
 
         #[derive(Debug, Clone, PartialEq, Eq)]
-        #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+        #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
         /// Structure that represents a KES signature.
         pub struct $signame {
             sigma: $sigma,
@@ -540,7 +545,7 @@ mod test {
     }
 }
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serde_enabled")]
 #[cfg(test)]
 mod test_serde {
     use super::*;
