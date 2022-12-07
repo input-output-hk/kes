@@ -21,7 +21,7 @@ pub struct Seed;
 
 /// KES public key, which is represented as an array of bytes. A `PublicKey`is the output
 /// of a Blake2b hash.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde_enabled", serde_as)]
 pub struct PublicKey(
