@@ -1,7 +1,6 @@
 # Key Evolving Signatures ![CI workflow](https://github.com/input-output-hk/kes/actions/workflows/ci.yml/badge.svg) ![crates.io](https://img.shields.io/crates/v/kes-summed-ed25519.svg)
 
-
-This crate is ongoing work, and has not been audited. Do not use in production.
+**Disclaimer:** This crate is ongoing work, and has not been audited.
 
 ## Rust implementation of KES
 `kes-sumed-ed25519` is a pure rust implementation of Key Evolving Signatures, following the paper 
@@ -12,7 +11,8 @@ by Malkin, Micciancio and Miner. In particular, we implement the "sum" compositi
 used in [libsodium](https://github.com/jedisct1/libsodium). 
 
 This library defines macros to generate KES algorithms with different depths. We currently expose KES
-algorithms up to depth 7. 
+algorithms up to depth 7. However, if you require a higher depth key, feel free to open an
+issue/PR. 
 
 ## Library usage
 This library exposes `SumXKes` for `X` in [0,7]. A KES algorithm with depth `X` can evolve the key 

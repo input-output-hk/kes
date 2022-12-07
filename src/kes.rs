@@ -25,7 +25,6 @@ macro_rules! sum_kes {
         #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
         #[doc=$doc]
         pub struct $name(
-            #[cfg_attr(feature = "serde_enabled", serde(with = "As::<Bytes>"))]
             [u8; INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2)],
         );
 

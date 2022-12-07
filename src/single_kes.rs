@@ -16,8 +16,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Zeroize)]
 #[zeroize(drop)]
-#[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde_enabled", serde_as)]
 /// Single KES instance, which is a wrapper over ed25519.
 pub struct Sum0Kes(
     #[cfg_attr(feature = "serde_enabled", serde_as(as = "Bytes"))]
@@ -114,8 +112,6 @@ impl Sum0KesSig {
 
 #[derive(Debug, Clone, Zeroize)]
 #[zeroize(drop)]
-#[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde_enabled", serde_as)]
 /// Single KES instance, which is a wrapper over ed25519.
 pub struct Sum0CompactKes(
     #[cfg_attr(feature = "serde_enabled", serde_as(as = "Bytes"))]
