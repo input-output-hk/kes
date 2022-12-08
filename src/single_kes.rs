@@ -44,7 +44,7 @@ impl KesSk for Sum0Kes {
         )
     }
 
-    fn sign(&self, _: usize, m: &[u8]) -> Sum0KesSig {
+    fn sign(&self, m: &[u8]) -> Sum0KesSig {
         let secret = EdSecretKey::from_bytes(&self.0)
             .expect("Seed is defined with 32 bytes, so it won't fail.");
         let public = (&secret).into();
@@ -52,17 +52,17 @@ impl KesSk for Sum0Kes {
         Sum0KesSig(ed_sk.sign(m))
     }
 
-    fn update(&mut self, _: usize) -> Result<(), Error> {
+    fn update(&mut self) -> Result<(), Error> {
         Err(Error::KeyCannotBeUpdatedMore)
     }
 
-    fn update_slice(_: &mut [u8], _: usize) -> Result<(), Error> {
+    fn update_slice(_: &mut [u8], _: u32) -> Result<(), Error> {
         Err(Error::KeyCannotBeUpdatedMore)
     }
 }
 
 impl KesSig for Sum0KesSig {
-    fn verify(&self, _: usize, pk: &PublicKey, m: &[u8]) -> Result<(), Error> {
+    fn verify(&self, _: u32, pk: &PublicKey, m: &[u8]) -> Result<(), Error> {
         let ed_pk = pk.to_ed25519()?;
         ed_pk.verify_strict(m, &self.0).map_err(Error::from)
     }
@@ -74,12 +74,13 @@ impl Sum0Kes {
 
     /// Convert a byte array into a key
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        if bytes.len() != Self::SIZE {
+        if bytes.len() != Self::SIZE + 4 {
+            // counting for the ignored period
             return Err(Error::InvalidSecretKeySize(bytes.len()));
         }
 
         let mut key = [0u8; Self::SIZE];
-        key.copy_from_slice(bytes);
+        key.copy_from_slice(&bytes[..Self::SIZE]);
         Ok(Self(key))
     }
 
@@ -105,7 +106,7 @@ impl Sum0KesSig {
     }
 
     /// Return `Self` as a byte array.
-    pub fn to_bytes(&self) -> [u8; Self::SIZE] {
+    pub fn to_bytes(self) -> [u8; Self::SIZE] {
         self.0.to_bytes()
     }
 }
@@ -141,7 +142,7 @@ impl KesSk for Sum0CompactKes {
         )
     }
 
-    fn sign(&self, _: usize, m: &[u8]) -> Sum0CompactKesSig {
+    fn sign(&self, m: &[u8]) -> Sum0CompactKesSig {
         let secret = EdSecretKey::from_bytes(&self.0)
             .expect("Seed is defined with 32 bytes, so it won't fail.");
         let public = (&secret).into();
@@ -149,16 +150,16 @@ impl KesSk for Sum0CompactKes {
         Sum0CompactKesSig(ed_sk.sign(m), public)
     }
 
-    fn update(&mut self, _: usize) -> Result<(), Error> {
+    fn update(&mut self) -> Result<(), Error> {
         Err(Error::KeyCannotBeUpdatedMore)
     }
-    fn update_slice(_: &mut [u8], _: usize) -> Result<(), Error> {
+    fn update_slice(_: &mut [u8], _: u32) -> Result<(), Error> {
         Err(Error::KeyCannotBeUpdatedMore)
     }
 }
 
 impl KesCompactSig for Sum0CompactKesSig {
-    fn recompute(&self, _: usize, m: &[u8]) -> Result<PublicKey, Error> {
+    fn recompute(&self, _: u32, m: &[u8]) -> Result<PublicKey, Error> {
         self.1.verify_strict(m, &self.0)?;
         Ok(PublicKey(self.1.to_bytes()))
     }
@@ -168,14 +169,22 @@ impl Sum0CompactKes {
     /// Size of secret key of Single KES instance
     pub const SIZE: usize = SECRET_KEY_LENGTH;
 
+    pub(crate) fn sign_compact(&self, m: &[u8], _: u32) -> <Self as KesSk>::Sig {
+        let secret = EdSecretKey::from_bytes(&self.0)
+            .expect("Seed is defined with 32 bytes, so it won't fail.");
+        let public = (&secret).into();
+        let ed_sk = EdKeypair { secret, public };
+        Sum0CompactKesSig(ed_sk.sign(m), public)
+    }
+
     /// Convert a byte array into a key
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        if bytes.len() != Self::SIZE {
+        if bytes.len() != Self::SIZE + 4 {
             return Err(Error::InvalidSecretKeySize(bytes.len()));
         }
 
         let mut key = [0u8; Self::SIZE];
-        key.copy_from_slice(bytes);
+        key.copy_from_slice(&bytes[..Self::SIZE]);
         Ok(Self(key))
     }
 
@@ -204,7 +213,7 @@ impl Sum0CompactKesSig {
     }
 
     /// Return `Self` as a byte array.
-    pub fn to_bytes(&self) -> [u8; Self::SIZE] {
+    pub fn to_bytes(self) -> [u8; Self::SIZE] {
         let mut output = [0u8; Self::SIZE];
         output[..SIGNATURE_LENGTH].copy_from_slice(&self.0.to_bytes());
         output[SIGNATURE_LENGTH..].copy_from_slice(self.1.as_bytes());

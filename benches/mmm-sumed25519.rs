@@ -21,8 +21,8 @@ fn update_with_depth<KES: KesSk>(depth: usize, nb_update: usize, c: &mut Criteri
     c.bench_function(format!("Update with depth: {}", depth).as_str(), |b| {
         let (mut sk_orig, _) = KES::keygen(&mut seed);
         b.iter(|| {
-            for period in 0..(nb_update - 1) {
-                sk_orig.update(period).unwrap()
+            for _ in 0..(nb_update - 1) {
+                sk_orig.update().unwrap()
             }
         })
     });
@@ -38,11 +38,11 @@ fn update_with_depth_skip<KES: KesSk>(depth: usize, nb_update_to_skip: usize, c:
         .as_str(),
         |b| {
             let (mut sk_orig, _) = KES::keygen(&mut seed);
-            for period in 0..(nb_update_to_skip - 1) {
-                sk_orig.update(period).unwrap()
+            for _ in 0..(nb_update_to_skip - 1) {
+                sk_orig.update().unwrap()
             }
 
-            b.iter(|| sk_orig.update(nb_update_to_skip).unwrap())
+            b.iter(|| sk_orig.update().unwrap())
         },
     );
 }
@@ -72,7 +72,7 @@ fn sign_depth5(c: &mut Criterion) {
     let msg = [0u8; 256];
     c.bench_function("Signature with depth 5", |b| {
         b.iter(|| {
-            sk.sign(0, &msg);
+            sk.sign(&msg);
         })
     });
 }
@@ -81,7 +81,7 @@ fn verify_depth7(c: &mut Criterion) {
     let mut seed = [0u8; 32];
     let (sk, pk) = Sum7CompactKes::keygen(&mut seed);
     let msg = [0u8; 256];
-    let signature = sk.sign(0, &msg);
+    let signature = sk.sign(&msg);
     c.bench_function("Siganture verification with depth 12", |b| {
         b.iter(|| {
             signature.verify(0, &pk, &msg).unwrap();

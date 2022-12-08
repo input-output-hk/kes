@@ -37,7 +37,7 @@ impl PublicKey {
         PublicKey(out)
     }
 
-    pub(crate) fn to_ed25519(&self) -> Result<ed25519::PublicKey, Error> {
+    pub(crate) fn as_ed25519(&self) -> Result<ed25519::PublicKey, Error> {
         ed25519::PublicKey::from_bytes(self.as_bytes())
             .or(Err(Error::Ed25519InvalidCompressedFormat))
     }
@@ -66,8 +66,8 @@ impl PublicKey {
     pub fn hash_pair(&self, other: &PublicKey) -> PublicKey {
         let mut out = [0u8; 32];
         let mut h = VarBlake2b::new(32).expect("valid size");
-        h.update(&self.0);
-        h.update(&other.0);
+        h.update(self.0);
+        h.update(other.0);
 
         h.finalize_variable(|res| out.copy_from_slice(res));
         PublicKey(out)
@@ -94,10 +94,10 @@ impl Seed {
         let mut hleft = VarBlake2b::new(32).expect("valid size");
         let mut hright = VarBlake2b::new(32).expect("valid size");
 
-        hleft.update(&[1]);
+        hleft.update([1]);
         hleft.update(&bytes);
 
-        hright.update(&[2]);
+        hright.update([2]);
         hright.update(&bytes);
 
         hleft.finalize_variable(|out| left_seed.copy_from_slice(out));
@@ -111,18 +111,18 @@ impl Seed {
 
 /// Structure that represents the depth of the binary tree.
 #[derive(Debug, Copy, Clone)]
-pub struct Depth(pub usize);
+pub struct Depth(pub u32);
 
 impl Depth {
     /// Compute the total number of signatures one can generate with the given `Depth`
-    pub fn total(self) -> usize {
-        usize::pow(2, self.0 as u32)
+    pub fn total(self) -> u32 {
+        u32::pow(2, self.0)
     }
 
     /// Compute half of the total number of signatures one can generate with the given `Depth`
-    pub fn half(self) -> usize {
+    pub fn half(self) -> u32 {
         assert!(self.0 > 0);
-        usize::pow(2, (self.0 - 1) as u32)
+        u32::pow(2, self.0 - 1)
     }
 
     /// Returns a new `Depth` value with one less depth as `self`.

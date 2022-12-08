@@ -25,7 +25,7 @@ macro_rules! sum_kes {
         #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
         #[doc=$doc]
         pub struct $name(
-            [u8; INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2)],
+            [u8; 4 + INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2)],
         );
 
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,7 +49,7 @@ macro_rules! sum_kes {
                     Seed::SIZE,
                     "Size of the seed is incorrect."
                 );
-                let mut data = [0u8; Self::SIZE];
+                let mut data = [0u8; Self::SIZE + 4];
                 let (mut r0, mut seed) = Seed::split_slice(master_seed);
                 // We copy the seed before overwriting with zeros (in the `keygen` call).
                 data[$sk::SIZE..$sk::SIZE + 32].copy_from_slice(&seed);
@@ -60,21 +60,21 @@ macro_rules! sum_kes {
                 let pk = pk_0.hash_pair(&pk_1);
 
                 // We write the keys to the main data.
-                data[..$sk::SIZE].copy_from_slice(&sk_0.0);
+                data[..$sk::SIZE].copy_from_slice(&sk_0.0[..$sk::SIZE]);
                 data[$sk::SIZE + 32..$sk::SIZE + 64].copy_from_slice(&pk_0.as_bytes());
                 data[$sk::SIZE + 64..$sk::SIZE + 96].copy_from_slice(&pk_1.as_bytes());
+
+                // We write the period the the main data.
+                data[Self::SIZE..].copy_from_slice(&0u32.to_be_bytes());
 
                 (Self(data), pk)
             }
 
-            fn sign(&self, period: usize, m: &[u8]) -> Self::Sig {
-                let t0 = Depth($depth).half();
-                let sk = $sk::from_bytes(&self.as_bytes()[..$sk::SIZE]).expect("Invalid key bytes");
-                let sigma = if period < t0 {
-                    sk.sign(period, m)
-                } else {
-                    sk.sign(period - t0, m)
-                };
+            fn sign(&self, m: &[u8]) -> Self::Sig {
+                // FIXME: Taking 4 additional bytes for the period, which are not used, but def not right.
+                let sk =
+                    $sk::from_bytes(&self.as_bytes()[..$sk::SIZE + 4]).expect("Invalid key bytes");
+                let sigma = sk.sign(m);
 
                 let lhs_pk =
                     PublicKey::from_bytes(&self.as_bytes()[$sk::SIZE + 32..$sk::SIZE + 64])
@@ -89,11 +89,18 @@ macro_rules! sum_kes {
                 }
             }
 
-            fn update(&mut self, period: usize) -> Result<(), Error> {
-                Self::update_slice(&mut self.0, period)
+            fn update(&mut self) -> Result<(), Error> {
+                let mut u32_bytes = [0u8; 4];
+                u32_bytes.copy_from_slice(&self.0[Self::SIZE..]);
+                let period = u32::from_be_bytes(u32_bytes);
+
+                Self::update_slice(&mut self.0[..Self::SIZE], period)?;
+
+                self.0[Self::SIZE..].copy_from_slice(&(period + 1).to_be_bytes());
+                Ok(())
             }
 
-            fn update_slice(key_slice: &mut [u8], period: usize) -> Result<(), Error> {
+            fn update_slice(key_slice: &mut [u8], period: u32) -> Result<(), Error> {
                 if period + 1 == Depth($depth).total() {
                     return Err(Error::KeyCannotBeUpdatedMore);
                 }
@@ -102,7 +109,8 @@ macro_rules! sum_kes {
                     Ordering::Less => $sk::update_slice(&mut key_slice[..$sk::SIZE], period)?,
                     Ordering::Equal => {
                         let updated_key = $sk::keygen(&mut key_slice[$sk::SIZE..$sk::SIZE + 32]).0;
-                        key_slice[..$sk::SIZE].copy_from_slice(updated_key.as_bytes());
+                        key_slice[..$sk::SIZE]
+                            .copy_from_slice(&updated_key.as_bytes()[..$sk::SIZE]);
                     }
                     Ordering::Greater => $sk::update_slice(
                         &mut key_slice[..$sk::SIZE],
@@ -115,7 +123,7 @@ macro_rules! sum_kes {
         }
 
         impl KesSig for $signame {
-            fn verify(&self, period: usize, pk: &PublicKey, m: &[u8]) -> Result<(), Error> {
+            fn verify(&self, period: u32, pk: &PublicKey, m: &[u8]) -> Result<(), Error> {
                 if &self.lhs_pk.hash_pair(&self.rhs_pk) != pk {
                     return Err(Error::InvalidHashComparison);
                 }
@@ -143,19 +151,21 @@ macro_rules! sum_kes {
             /// The function fails if
             /// * `bytes.len()` is not of the expected size
             pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-                if bytes.len() != Self::SIZE {
+                if bytes.len() != Self::SIZE + 4 {
+                    // We need to account for the seed
                     return Err(Error::InvalidSecretKeySize(bytes.len()));
                 }
 
-                let mut key = [0u8; Self::SIZE];
+                let mut key = [0u8; Self::SIZE + 4];
                 key.copy_from_slice(bytes);
                 Ok(Self(key))
             }
 
             /// Convert `Self` into it's byte representation. In particular, the encoding returns
-            /// the following array of size `Self::SIZE`:
-            /// ( sk_{-1} || seed || self.lhs_pk || self.rhs_pk )
+            /// the following array of size `Self::SIZE + 4`:
+            /// ( sk_{-1} || seed || self.lhs_pk || self.rhs_pk || period )
             /// where `sk_{-1}` is the secret secret key of lower depth.
+            /// Note that the period is only included in the last layer.
             pub fn as_bytes(&self) -> &[u8] {
                 &self.0
             }
@@ -174,7 +184,7 @@ macro_rules! sum_kes {
             ///   signature
             pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
                 if bytes.len() != Self::SIZE {
-                    return Err(Error::InvalidSecretKeySize(bytes.len()));
+                    return Err(Error::InvalidSignatureSize(bytes.len()));
                 }
 
                 let sigma = $sigma::from_bytes(&bytes[..$sigma::SIZE])?;
@@ -212,7 +222,7 @@ macro_rules! sum_compact_kes {
         #[zeroize(drop)]
         #[doc=$doc]
         pub struct $name(
-            [u8; INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2)],
+            [u8; 4 + INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2)],
         );
 
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -234,7 +244,7 @@ macro_rules! sum_compact_kes {
                     Seed::SIZE,
                     "Size of the seed is incorrect."
                 );
-                let mut data = [0u8; Self::SIZE];
+                let mut data = [0u8; Self::SIZE + 4];
                 let (mut r0, mut seed) = Seed::split_slice(master_seed);
                 // We copy the seed before overwriting with zeros (in the `keygen` call).
                 data[$sk::SIZE..$sk::SIZE + 32].copy_from_slice(&seed);
@@ -245,34 +255,36 @@ macro_rules! sum_compact_kes {
                 let pk = pk_0.hash_pair(&pk_1);
 
                 // We write the keys to the main data.
-                data[..$sk::SIZE].copy_from_slice(&sk_0.0);
+                data[..$sk::SIZE].copy_from_slice(&sk_0.0[..$sk::SIZE]);
                 data[$sk::SIZE + 32..$sk::SIZE + 64].copy_from_slice(&pk_0.as_bytes());
                 data[$sk::SIZE + 64..$sk::SIZE + 96].copy_from_slice(&pk_1.as_bytes());
+
+                // We write the period the the main data.
+                data[Self::SIZE..].copy_from_slice(&0u32.to_be_bytes());
 
                 (Self(data), pk)
             }
 
-            fn sign(&self, period: usize, m: &[u8]) -> Self::Sig {
-                let t0 = Depth($depth).half();
-                let sk = $sk::from_bytes(&self.as_bytes()[..$sk::SIZE]).expect("Invalid key bytes");
-                let mut pk_bytes = [0u8; 32];
-                let sigma = if period < t0 {
-                    pk_bytes.copy_from_slice(&self.as_bytes()[$sk::SIZE + 64..$sk::SIZE + 96]);
-                    sk.sign(period, m)
-                } else {
-                    pk_bytes.copy_from_slice(&self.as_bytes()[$sk::SIZE + 32..$sk::SIZE + 64]);
-                    sk.sign(period - t0, m)
-                };
+            fn sign(&self, m: &[u8]) -> Self::Sig {
+                let mut u32_bytes = [0u8; 4];
+                u32_bytes.copy_from_slice(&self.0[Self::SIZE..]);
+                let period = u32::from_be_bytes(u32_bytes);
 
-                let pk = PublicKey::from_bytes(&pk_bytes).expect("Won't fail as slice has size 32");
-                $signame { sigma, pk }
+                self.sign_compact(m, period)
             }
 
-            fn update(&mut self, period: usize) -> Result<(), Error> {
-                Self::update_slice(&mut self.0, period)
+            fn update(&mut self) -> Result<(), Error> {
+                let mut u32_bytes = [0u8; 4];
+                u32_bytes.copy_from_slice(&self.0[Self::SIZE..]);
+                let period = u32::from_be_bytes(u32_bytes);
+
+                Self::update_slice(&mut self.0[..Self::SIZE], period)?;
+
+                self.0[Self::SIZE..].copy_from_slice(&(period + 1).to_be_bytes());
+                Ok(())
             }
 
-            fn update_slice(key_slice: &mut [u8], period: usize) -> Result<(), Error> {
+            fn update_slice(key_slice: &mut [u8], period: u32) -> Result<(), Error> {
                 if period + 1 == Depth($depth).total() {
                     return Err(Error::KeyCannotBeUpdatedMore);
                 }
@@ -281,7 +293,8 @@ macro_rules! sum_compact_kes {
                     Ordering::Less => $sk::update_slice(&mut key_slice[..$sk::SIZE], period)?,
                     Ordering::Equal => {
                         let updated_key = $sk::keygen(&mut key_slice[$sk::SIZE..$sk::SIZE + 32]).0;
-                        key_slice[..$sk::SIZE].copy_from_slice(updated_key.as_bytes());
+                        key_slice[..$sk::SIZE]
+                            .copy_from_slice(&updated_key.as_bytes()[..$sk::SIZE]);
                     }
                     Ordering::Greater => $sk::update_slice(
                         &mut key_slice[..$sk::SIZE],
@@ -294,7 +307,7 @@ macro_rules! sum_compact_kes {
         }
 
         impl KesCompactSig for $signame {
-            fn recompute(&self, period: usize, m: &[u8]) -> Result<PublicKey, Error> {
+            fn recompute(&self, period: u32, m: &[u8]) -> Result<PublicKey, Error> {
                 if period < Depth($depth).half() {
                     let recomputed_key = self.sigma.recompute(period, m)?;
                     Ok(recomputed_key.hash_pair(&self.pk))
@@ -305,11 +318,28 @@ macro_rules! sum_compact_kes {
             }
         }
 
-        // And now we implement serialisation
         impl $name {
             /// Byte size of the KES key
             pub const SIZE: usize =
                 INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2);
+
+            pub(crate) fn sign_compact(&self, m: &[u8], period: u32) -> <Self as KesSk>::Sig {
+                let t0 = Depth($depth).half();
+                // FIXME: AGAIN
+                let sk =
+                    $sk::from_bytes(&self.as_bytes()[..$sk::SIZE + 4]).expect("Invalid key bytes");
+                let mut pk_bytes = [0u8; 32];
+                let sigma = if period < t0 {
+                    pk_bytes.copy_from_slice(&self.as_bytes()[$sk::SIZE + 64..$sk::SIZE + 96]);
+                    sk.sign_compact(m, period)
+                } else {
+                    pk_bytes.copy_from_slice(&self.as_bytes()[$sk::SIZE + 32..$sk::SIZE + 64]);
+                    sk.sign_compact(m, period - t0)
+                };
+
+                let pk = PublicKey::from_bytes(&pk_bytes).expect("Won't fail as slice has size 32");
+                $signame { sigma, pk }
+            }
 
             /// Convert the slice of bytes into `Self`.
             ///
@@ -317,19 +347,20 @@ macro_rules! sum_compact_kes {
             /// The function fails if
             /// * `bytes.len()` is not of the expected size
             pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-                if bytes.len() != Self::SIZE {
+                if bytes.len() != Self::SIZE + 4 {
                     return Err(Error::InvalidSecretKeySize(bytes.len()));
                 }
 
-                let mut key = [0u8; Self::SIZE];
+                let mut key = [0u8; Self::SIZE + 4];
                 key.copy_from_slice(bytes);
                 Ok(Self(key))
             }
 
             /// Convert `Self` into it's byte representation. In particular, the encoding returns
-            /// the following array of size `Self::SIZE`:
-            /// ( sk_{-1} || seed || self.lhs_pk || self.rhs_pk )
+            /// the following array of size `Self::SIZE + 4`:
+            /// ( sk_{-1} || seed || self.lhs_pk || self.rhs_pk || period )
             /// where `sk_{-1}` is the secret secret key of lower depth.
+            /// Note that the period is only included in the last layer.
             pub fn as_bytes(&self) -> &[u8] {
                 &self.0
             }
@@ -348,7 +379,7 @@ macro_rules! sum_compact_kes {
             ///   signature
             pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
                 if bytes.len() != Self::SIZE {
-                    return Err(Error::InvalidSecretKeySize(bytes.len()));
+                    return Err(Error::InvalidSignatureSize(bytes.len()));
                 }
 
                 let sigma = $sigma::from_bytes(&bytes[..$sigma::SIZE])?;
@@ -495,51 +526,54 @@ mod test {
     fn buff_single() {
         let (mut skey, pkey) = Sum1Kes::keygen(&mut [0u8; 32]);
         let dummy_message = b"tilin";
-        let sigma = skey.sign(0, dummy_message);
+        let sigma = skey.sign(dummy_message);
 
         assert!(sigma.verify(0, &pkey, dummy_message).is_ok());
 
         // Key can be updated once
-        assert!(skey.update(0).is_ok());
+        assert!(skey.update().is_ok());
     }
 
     #[test]
     fn buff_4() {
         let (mut skey, pkey) = Sum4Kes::keygen(&mut [0u8; 32]);
         let dummy_message = b"tilin";
-        let sigma = skey.sign(0, dummy_message);
+        let sigma = skey.sign(dummy_message);
 
         assert!(sigma.verify(0, &pkey, dummy_message).is_ok());
 
         // Key can be updated 2^4 - 1 times
-        for period in 0..15 {
-            assert!(skey.update(period).is_ok());
+        for _ in 0..15 {
+            assert!(skey.update().is_ok());
         }
+
+        let sigma_15 = skey.sign(dummy_message);
+        assert!(sigma_15.verify(15, &pkey, dummy_message).is_ok())
     }
 
     #[test]
     fn buff_compact_single() {
         let (mut skey, pkey) = Sum1CompactKes::keygen(&mut [0u8; 32]);
         let dummy_message = b"tilin";
-        let sigma = skey.sign(0, dummy_message);
+        let sigma = skey.sign(dummy_message);
 
         assert!(sigma.verify(0, &pkey, dummy_message).is_ok());
 
         // Key can be updated once
-        assert!(skey.update(0).is_ok());
+        assert!(skey.update().is_ok());
     }
 
     #[test]
     fn buff_compact_4() {
         let (mut skey, pkey) = Sum4CompactKes::keygen(&mut [0u8; 32]);
         let dummy_message = b"tilin";
-        let sigma = skey.sign(0, dummy_message);
+        let sigma = skey.sign(dummy_message);
 
         assert!(sigma.verify(0, &pkey, dummy_message).is_ok());
 
         // Key can be updated 2^4 - 1 times
-        for period in 0..15 {
-            assert!(skey.update(period).is_ok());
+        for _ in 0..15 {
+            assert!(skey.update().is_ok());
         }
     }
 }
@@ -559,7 +593,7 @@ mod test_serde {
         assert_eq!(pkey, deser_pkey);
 
         let dummy_message = b"tolon";
-        let sigma = skey.sign(0, dummy_message);
+        let sigma = skey.sign(dummy_message);
 
         let sigma_bytes = serde_json::to_string(&sigma).unwrap();
         let deser_sigma: Sum1KesSig = serde_json::from_str(&sigma_bytes).unwrap();
@@ -575,7 +609,7 @@ mod test_serde {
         assert_eq!(pkey, deser_pkey);
 
         let dummy_message = b"tolon";
-        let sigma = skey.sign(0, dummy_message);
+        let sigma = skey.sign(dummy_message);
 
         let sigma_bytes = serde_json::to_string(&sigma).unwrap();
         let deser_sigma: Sum1CompactKesSig = serde_json::from_str(&sigma_bytes).unwrap();
@@ -594,7 +628,7 @@ mod test_serde {
         assert_eq!(pkey, deser_pkey);
 
         let dummy_message = b"tolon";
-        let sigma = skey.sign(0, dummy_message);
+        let sigma = skey.sign(dummy_message);
 
         let sigma_bytes = serde_json::to_string(&sigma).unwrap();
         let deser_sigma: Sum4KesSig = serde_json::from_str(&sigma_bytes).unwrap();
@@ -610,7 +644,7 @@ mod test_serde {
         assert_eq!(pkey, deser_pkey);
 
         let dummy_message = b"tolon";
-        let sigma = skey.sign(0, dummy_message);
+        let sigma = skey.sign(dummy_message);
 
         let sigma_bytes = serde_json::to_string(&sigma).unwrap();
         let deser_sigma: Sum4CompactKesSig = serde_json::from_str(&sigma_bytes).unwrap();
@@ -629,7 +663,7 @@ mod test_serde {
         assert_eq!(pkey, deser_pkey);
 
         let dummy_message = b"tolon";
-        let sigma = skey.sign(0, dummy_message);
+        let sigma = skey.sign(dummy_message);
 
         let sigma_bytes = serde_json::to_string(&sigma).unwrap();
         let deser_sigma: Sum6KesSig = serde_json::from_str(&sigma_bytes).unwrap();
@@ -645,7 +679,7 @@ mod test_serde {
         assert_eq!(pkey, deser_pkey);
 
         let dummy_message = b"tolon";
-        let sigma = skey.sign(0, dummy_message);
+        let sigma = skey.sign(dummy_message);
 
         let sigma_bytes = serde_json::to_string(&sigma).unwrap();
         let deser_sigma: Sum6CompactKesSig = serde_json::from_str(&sigma_bytes).unwrap();
