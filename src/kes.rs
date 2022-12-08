@@ -71,9 +71,8 @@ macro_rules! sum_kes {
             }
 
             fn sign(&self, m: &[u8]) -> Self::Sig {
-                // FIXME: Taking 4 additional bytes for the period, which are not used, but def not right.
                 let sk =
-                    $sk::from_bytes(&self.as_bytes()[..$sk::SIZE + 4]).expect("Invalid key bytes");
+                    $sk::skey_from_bytes(&self.as_bytes()[..$sk::SIZE]).expect("Invalid key bytes");
                 let sigma = sk.sign(m);
 
                 let lhs_pk =
@@ -158,6 +157,20 @@ macro_rules! sum_kes {
 
                 let mut key = [0u8; Self::SIZE + 4];
                 key.copy_from_slice(bytes);
+                Ok(Self(key))
+            }
+
+            /// Convert the slice of bytes to the skey part of Self. This function intentionally
+            /// leaves out the period, as the period from low level keys are not needed (only
+            /// the parent's method period is required).
+            #[allow(dead_code)] // we need this because the last layer of KES will never use this function.
+            fn skey_from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+                if bytes.len() != Self::SIZE {
+                    return Err(Error::InvalidSecretKeySize(bytes.len()));
+                }
+
+                let mut key = [0u8; Self::SIZE + 4];
+                key[..Self::SIZE].copy_from_slice(bytes);
                 Ok(Self(key))
             }
 
@@ -325,9 +338,8 @@ macro_rules! sum_compact_kes {
 
             pub(crate) fn sign_compact(&self, m: &[u8], period: u32) -> <Self as KesSk>::Sig {
                 let t0 = Depth($depth).half();
-                // FIXME: AGAIN
                 let sk =
-                    $sk::from_bytes(&self.as_bytes()[..$sk::SIZE + 4]).expect("Invalid key bytes");
+                    $sk::skey_from_bytes(&self.as_bytes()[..$sk::SIZE]).expect("Invalid key bytes");
                 let mut pk_bytes = [0u8; 32];
                 let sigma = if period < t0 {
                     pk_bytes.copy_from_slice(&self.as_bytes()[$sk::SIZE + 64..$sk::SIZE + 96]);
@@ -353,6 +365,20 @@ macro_rules! sum_compact_kes {
 
                 let mut key = [0u8; Self::SIZE + 4];
                 key.copy_from_slice(bytes);
+                Ok(Self(key))
+            }
+
+            /// Convert the slice of bytes to the skey part of Self. This function intentionally
+            /// leaves out the period, as the period from low level keys are not needed (only
+            /// the parent's method period is required).
+            #[allow(dead_code)] // we need this because the last layer of KES will never use this function.
+            fn skey_from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+                if bytes.len() != Self::SIZE {
+                    return Err(Error::InvalidSecretKeySize(bytes.len()));
+                }
+
+                let mut key = [0u8; Self::SIZE + 4];
+                key[..Self::SIZE].copy_from_slice(bytes);
                 Ok(Self(key))
             }
 

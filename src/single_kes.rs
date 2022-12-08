@@ -73,9 +73,8 @@ impl Sum0Kes {
     pub const SIZE: usize = SECRET_KEY_LENGTH;
 
     /// Convert a byte array into a key
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        if bytes.len() != Self::SIZE + 4 {
-            // counting for the ignored period
+    pub fn skey_from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.len() != Self::SIZE {
             return Err(Error::InvalidSecretKeySize(bytes.len()));
         }
 
@@ -178,8 +177,8 @@ impl Sum0CompactKes {
     }
 
     /// Convert a byte array into a key
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        if bytes.len() != Self::SIZE + 4 {
+    pub fn skey_from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.len() != Self::SIZE {
             return Err(Error::InvalidSecretKeySize(bytes.len()));
         }
 
