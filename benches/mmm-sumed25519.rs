@@ -1,6 +1,6 @@
 #[macro_use]
 extern crate criterion;
-use criterion::Criterion;
+use criterion::{BatchSize, Criterion};
 use kes_summed_ed25519::kes::{
     Sum1CompactKes, Sum2CompactKes, Sum3CompactKes, Sum4CompactKes, Sum5CompactKes, Sum6CompactKes,
     Sum7CompactKes,
@@ -18,13 +18,20 @@ fn bench_keygen<KES: KesSk>(depth: usize, c: &mut Criterion) {
 
 fn update_with_depth<KES: KesSk>(depth: usize, nb_update: usize, c: &mut Criterion) {
     let mut seed = [0u8; 32];
-    c.bench_function(format!("Update with depth: {}", depth).as_str(), |b| {
-        let (mut sk_orig, _) = KES::keygen(&mut seed);
-        b.iter(|| {
-            for _ in 0..(nb_update - 1) {
-                sk_orig.update().unwrap()
-            }
-        })
+
+    c.bench_function(format!("Update with depth: {}", depth).as_str(), move |b| {
+        b.iter_batched_ref(
+            || -> KES {
+                let (sk_orig, _) = KES::keygen(&mut seed);
+                sk_orig
+            },
+            |sk_orig| {
+                for _ in 0..(nb_update - 1) {
+                    sk_orig.update().unwrap()
+                }
+            },
+            BatchSize::SmallInput,
+        )
     });
 }
 
@@ -37,12 +44,17 @@ fn update_with_depth_skip<KES: KesSk>(depth: usize, nb_update_to_skip: usize, c:
         )
         .as_str(),
         |b| {
-            let (mut sk_orig, _) = KES::keygen(&mut seed);
-            for _ in 0..(nb_update_to_skip - 1) {
-                sk_orig.update().unwrap()
-            }
-
-            b.iter(|| sk_orig.update().unwrap())
+            b.iter_batched_ref(
+                || -> KES {
+                    let (mut sk_orig, _) = KES::keygen(&mut seed);
+                    for _ in 0..(nb_update_to_skip - 1) {
+                        sk_orig.update().unwrap()
+                    }
+                    sk_orig
+                },
+                |sk_orig| sk_orig.update().unwrap(),
+                BatchSize::SmallInput,
+            )
         },
     );
 }
@@ -82,7 +94,7 @@ fn verify_depth7(c: &mut Criterion) {
     let (sk, pk) = Sum7CompactKes::keygen(&mut seed);
     let msg = [0u8; 256];
     let signature = sk.sign(&msg);
-    c.bench_function("Siganture verification with depth 12", |b| {
+    c.bench_function("Signature verification with depth 7", |b| {
         b.iter(|| {
             signature.verify(0, &pk, &msg).unwrap();
         })

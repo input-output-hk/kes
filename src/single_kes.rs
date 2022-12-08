@@ -63,7 +63,7 @@ impl KesSk for Sum0Kes {
 
 impl KesSig for Sum0KesSig {
     fn verify(&self, _: u32, pk: &PublicKey, m: &[u8]) -> Result<(), Error> {
-        let ed_pk = pk.to_ed25519()?;
+        let ed_pk = pk.as_ed25519()?;
         ed_pk.verify_strict(m, &self.0).map_err(Error::from)
     }
 }
