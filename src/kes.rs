@@ -15,14 +15,12 @@ use zeroize::Zeroize;
 #[cfg(feature = "serde_enabled")]
 use {
     serde::{Deserialize, Serialize},
-    serde_with::{As, Bytes},
 };
 
 macro_rules! sum_kes {
     ($name:ident, $signame:ident, $sk:ident, $sigma:ident, $depth:expr, $doc:expr) => {
         #[derive(Debug, Zeroize)]
         #[zeroize(drop)]
-        #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
         #[doc=$doc]
         pub struct $name(
             [u8; 4 + INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2)],

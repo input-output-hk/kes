@@ -18,7 +18,6 @@ use serde::{Deserialize, Serialize};
 #[zeroize(drop)]
 /// Single KES instance, which is a wrapper over ed25519.
 pub struct Sum0Kes(
-    #[cfg_attr(feature = "serde_enabled", serde_as(as = "Bytes"))]
     pub(crate)  [u8; SECRET_KEY_LENGTH],
 );
 
@@ -114,7 +113,6 @@ impl Sum0KesSig {
 #[zeroize(drop)]
 /// Single KES instance, which is a wrapper over ed25519.
 pub struct Sum0CompactKes(
-    #[cfg_attr(feature = "serde_enabled", serde_as(as = "Bytes"))]
     pub(crate)  [u8; SECRET_KEY_LENGTH],
 );
 
