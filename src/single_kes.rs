@@ -1,7 +1,7 @@
 //! Implementation of the base signature used for KES. This is a standard signature
 //! mechanism which is considered a KES signature scheme with a single period. In this
 //! case, the single instance is ed25519.
-use crate::common::PublicKey;
+use crate::common::{PublicKey, Seed};
 use crate::errors::Error;
 use crate::traits::{KesCompactSig, KesSig, KesSk};
 use ed25519_dalek::{
@@ -69,6 +69,47 @@ impl Sum0Kes {
     /// Size of secret key of Single KES instance
     pub const SIZE: usize = SECRET_KEY_LENGTH;
 
+    /// Create a key pair directly over a slice. Takes a second optional argument, which is
+    /// the seed. In some functions, the seed comes directly in the slice (as in the update),
+    /// but in other  comes in a different variable
+    pub(crate) fn keygen_slice(in_slice: &mut [u8], opt_seed: Option<&mut [u8]>) -> PublicKey {
+        let secret = if let Some(seed) = opt_seed {
+            assert_eq!(
+                in_slice.len(),
+                Self::SIZE,
+                "Input size is incorrect."
+            );
+
+            let sk = EdSecretKey::from_bytes(seed)
+                .expect("Size of the seed is incorrect.");
+
+            seed.copy_from_slice(&[0u8; 32]);
+            sk
+        } else {
+            assert_eq!(
+                in_slice.len(),
+                Self::SIZE + Seed::SIZE,
+                "Input size is incorrect."
+            );
+
+            let sk = EdSecretKey::from_bytes(&in_slice[Self::SIZE..])
+                .expect("Size of the seed is incorrect.");
+
+            in_slice[Self::SIZE..].copy_from_slice(&[0u8; 32]);
+            sk
+        };
+
+        let public = (&secret).into();
+
+        // We need to make this copies unfortunately by how the
+        // underlying library behaves. Would be great to have a
+        // EdPubKey from seed function.
+        // todo: think of a redesign
+        in_slice[..Self::SIZE].copy_from_slice(secret.as_bytes());
+
+        PublicKey::from_ed25519_publickey(&public)
+    }
+
     /// Convert a byte array into a key
     pub fn skey_from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.len() != Self::SIZE {
@@ -78,11 +119,6 @@ impl Sum0Kes {
         let mut key = [0u8; Self::SIZE];
         key.copy_from_slice(&bytes[..Self::SIZE]);
         Ok(Self(key))
-    }
-
-    /// Return the current key as a byte slice.
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.0
     }
 }
 

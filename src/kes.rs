@@ -40,25 +40,8 @@ macro_rules! sum_kes {
             /// Function that takes a mutable seed, and generates the key pair. It overwrites
             /// the seed with zeroes.
             fn keygen(master_seed: &mut [u8]) -> (Self, PublicKey) {
-                assert_eq!(
-                    master_seed.len(),
-                    Seed::SIZE,
-                    "Size of the seed is incorrect."
-                );
                 let mut data = [0u8; Self::SIZE + 4];
-                let (mut r0, mut seed) = Seed::split_slice(master_seed);
-                // We copy the seed before overwriting with zeros (in the `keygen` call).
-                data[$sk::SIZE..$sk::SIZE + 32].copy_from_slice(&seed);
-
-                let (sk_0, pk_0) = $sk::keygen(&mut r0);
-                let (_, pk_1) = $sk::keygen(&mut seed);
-
-                let pk = pk_0.hash_pair(&pk_1);
-
-                // We write the keys to the main data.
-                data[..$sk::SIZE].copy_from_slice(&sk_0.0[..$sk::SIZE]);
-                data[$sk::SIZE + 32..$sk::SIZE + 64].copy_from_slice(&pk_0.as_bytes());
-                data[$sk::SIZE + 64..$sk::SIZE + 96].copy_from_slice(&pk_1.as_bytes());
+                let pk = Self::keygen_slice(&mut data[..Self::SIZE], Some(master_seed));
 
                 // We write the period the the main data.
                 data[Self::SIZE..].copy_from_slice(&0u32.to_be_bytes());
@@ -66,7 +49,7 @@ macro_rules! sum_kes {
                 (Self(data), pk)
             }
 
-            fn sign(&self, m: &[u8]) -> Self::Sig {
+            fn sign(&self, m: &[u8]) -> Self::Sig { // todo: maybe we can do a sign_slice_sk fn below, and call that from here.
                 let sk =
                     $sk::skey_from_bytes(&self.as_bytes()[..$sk::SIZE]).expect("Invalid key bytes");
                 let sigma = sk.sign(m);
@@ -103,9 +86,7 @@ macro_rules! sum_kes {
                 match (period + 1).cmp(&Depth($depth).half()) {
                     Ordering::Less => $sk::update_slice(&mut key_slice[..$sk::SIZE], period)?,
                     Ordering::Equal => {
-                        let updated_key = $sk::keygen(&mut key_slice[$sk::SIZE..$sk::SIZE + 32]).0;
-                        key_slice[..$sk::SIZE]
-                            .copy_from_slice(&updated_key.as_bytes()[..$sk::SIZE]);
+                        $sk::keygen_slice(&mut key_slice[..$sk::SIZE + 32], None);
                     }
                     Ordering::Greater => $sk::update_slice(
                         &mut key_slice[..$sk::SIZE],
@@ -134,11 +115,50 @@ macro_rules! sum_kes {
             }
         }
 
-        // And now we implement serialisation
         impl $name {
             /// Byte size of the KES key
             pub const SIZE: usize =
                 INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2);
+
+            /// Create a key pair directly over a slice. Takes a second optional argument, which is
+            /// the seed. In some functions, the seed comes directly in the slice (as in the update),
+            /// but in other (such as this one) comes in a different variable
+            pub(crate) fn keygen_slice(in_slice: &mut [u8], opt_seed: Option<&mut [u8]>) -> PublicKey {
+                let (mut r0, mut seed) = if let Some(in_seed) = opt_seed {
+                    assert_eq!(
+                        in_slice.len(),
+                        Self::SIZE,
+                        "Input size is incorrect."
+                    );
+                    assert_eq!(
+                        in_seed.len(),
+                        Seed::SIZE,
+                        "Input seed is incorrect."
+                    );
+                    Seed::split_slice(in_seed)
+                } else {
+                    assert_eq!(
+                        in_slice.len(),
+                        Self::SIZE + Seed::SIZE,
+                        "Input size is incorrect."
+                    );
+                    Seed::split_slice(&mut in_slice[Self::SIZE..])
+                };
+
+                // We copy the seed before overwriting with zeros (in the `keygen` call).
+                in_slice[$sk::SIZE..$sk::SIZE + 32].copy_from_slice(&seed);
+
+                let pk_0 = $sk::keygen_slice(&mut in_slice[..$sk::SIZE], Some(&mut r0));
+                let (_, pk_1) = $sk::keygen(&mut seed);
+
+                let pk = pk_0.hash_pair(&pk_1);
+
+                // We write the pkeys to the main data.
+                in_slice[$sk::SIZE + 32..$sk::SIZE + 64].copy_from_slice(&pk_0.as_bytes());
+                in_slice[$sk::SIZE + 64..$sk::SIZE + 96].copy_from_slice(&pk_1.as_bytes());
+
+                pk
+            }
 
             /// Convert the slice of bytes into `Self`.
             ///
