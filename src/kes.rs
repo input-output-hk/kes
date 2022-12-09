@@ -13,9 +13,7 @@ use std::cmp::Ordering;
 use zeroize::Zeroize;
 
 #[cfg(feature = "serde_enabled")]
-use {
-    serde::{Deserialize, Serialize},
-};
+use serde::{Deserialize, Serialize};
 
 macro_rules! sum_kes {
     ($name:ident, $signame:ident, $sk:ident, $sigma:ident, $depth:expr, $doc:expr) => {

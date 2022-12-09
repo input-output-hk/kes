@@ -17,9 +17,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Zeroize)]
 #[zeroize(drop)]
 /// Single KES instance, which is a wrapper over ed25519.
-pub struct Sum0Kes(
-    pub(crate)  [u8; SECRET_KEY_LENGTH],
-);
+pub struct Sum0Kes(pub(crate) [u8; SECRET_KEY_LENGTH]);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
@@ -112,9 +110,7 @@ impl Sum0KesSig {
 #[derive(Debug, Zeroize)]
 #[zeroize(drop)]
 /// Single KES instance, which is a wrapper over ed25519.
-pub struct Sum0CompactKes(
-    pub(crate)  [u8; SECRET_KEY_LENGTH],
-);
+pub struct Sum0CompactKes(pub(crate) [u8; SECRET_KEY_LENGTH]);
 
 /// Singke KES Signature instance, which is a wrapper over ed25519.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
