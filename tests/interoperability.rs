@@ -92,55 +92,55 @@ fn haskell_signature_6_update_5() {
     assert_eq!(&signature.to_bytes(), h_signature);
 }
 
-#[test]
-fn haskel_compact_depth_1() {
-    // haskell generated key
-    let h_key: &[u8; 128] = include_bytes!("data/compactkey1.bin");
-
-    let seed = b"test string of 32 byte of lenght";
-    let (skey, _) = Sum1CompactKes::keygen(&mut seed.to_owned());
-
-    assert_eq!(skey.as_bytes()[..Sum1CompactKes::SIZE], h_key[..]);
-}
-
-#[test]
-fn haskell_compact_depth_6() {
-    let h_key: &[u8; 608] = include_bytes!("data/compactkey6.bin");
-
-    let seed = b"test string of 32 byte of lenght";
-    let (mut skey, _) = Sum6CompactKes::keygen(&mut seed.to_owned());
-    assert_eq!(skey.as_bytes()[..Sum6CompactKes::SIZE], h_key[..]);
-
-    let h_1update_key: &[u8; 608] = include_bytes!("data/compactkey6update1.bin");
-    skey.update().unwrap();
-    assert_eq!(skey.as_bytes()[..Sum6CompactKes::SIZE], h_1update_key[..]);
-}
-
-#[test]
-fn haskell_compact_signature_6() {
-    // haskell generated signature
-    let h_signature: &[u8; 288] = include_bytes!("data/compactkey6Sig.bin");
-
-    let seed = b"test string of 32 byte of lenght";
-    let message = b"test message";
-    let (skey, _) = Sum6CompactKes::keygen(&mut seed.to_owned());
-    let signature = skey.sign(message);
-    assert_eq!(&signature.to_bytes(), h_signature);
-}
-
-#[test]
-fn haskell_compact_signature_6_update_5() {
-    let h_signature: &[u8; 288] = include_bytes!("data/compactkey6Sig5.bin");
-
-    let seed = b"test string of 32 byte of lenght";
-    let message = b"test message";
-    let (mut skey, _) = Sum6CompactKes::keygen(&mut seed.to_owned());
-    skey.update().unwrap();
-    skey.update().unwrap();
-    skey.update().unwrap();
-    skey.update().unwrap();
-    skey.update().unwrap();
-
-    let signature = skey.sign(message);
-    assert_eq!(&signature.to_bytes(), h_signature);
-}
+// #[test]
+// fn haskel_compact_depth_1() {
+//     // haskell generated key
+//     let h_key: &[u8; 128] = include_bytes!("data/compactkey1.bin");
+//
+//     let seed = b"test string of 32 byte of lenght";
+//     let (skey, _) = Sum1CompactKes::keygen(&mut seed.to_owned());
+//
+//     assert_eq!(skey.as_bytes()[..Sum1CompactKes::SIZE], h_key[..]);
+// }
+//
+// #[test]
+// fn haskell_compact_depth_6() {
+//     let h_key: &[u8; 608] = include_bytes!("data/compactkey6.bin");
+//
+//     let seed = b"test string of 32 byte of lenght";
+//     let (mut skey, _) = Sum6CompactKes::keygen(&mut seed.to_owned());
+//     assert_eq!(skey.as_bytes()[..Sum6CompactKes::SIZE], h_key[..]);
+//
+//     let h_1update_key: &[u8; 608] = include_bytes!("data/compactkey6update1.bin");
+//     skey.update().unwrap();
+//     assert_eq!(skey.as_bytes()[..Sum6CompactKes::SIZE], h_1update_key[..]);
+// }
+//
+// #[test]
+// fn haskell_compact_signature_6() {
+//     // haskell generated signature
+//     let h_signature: &[u8; 288] = include_bytes!("data/compactkey6Sig.bin");
+//
+//     let seed = b"test string of 32 byte of lenght";
+//     let message = b"test message";
+//     let (skey, _) = Sum6CompactKes::keygen(&mut seed.to_owned());
+//     let signature = skey.sign(message);
+//     assert_eq!(&signature.to_bytes(), h_signature);
+// }
+//
+// #[test]
+// fn haskell_compact_signature_6_update_5() {
+//     let h_signature: &[u8; 288] = include_bytes!("data/compactkey6Sig5.bin");
+//
+//     let seed = b"test string of 32 byte of lenght";
+//     let message = b"test message";
+//     let (mut skey, _) = Sum6CompactKes::keygen(&mut seed.to_owned());
+//     skey.update().unwrap();
+//     skey.update().unwrap();
+//     skey.update().unwrap();
+//     skey.update().unwrap();
+//     skey.update().unwrap();
+//
+//     let signature = skey.sign(message);
+//     assert_eq!(&signature.to_bytes(), h_signature);
+// }

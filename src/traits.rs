@@ -6,14 +6,30 @@ use crate::errors::Error;
 pub trait KesSk: Sized {
     /// Type of the associated signature
     type Sig;
+    /// Size of SK
+    const SIZE: usize;
     /// Key generation
     fn keygen(seed: &mut [u8]) -> (Self, PublicKey);
+
     /// KES signature, using `self`.
     fn sign(&self, m: &[u8]) -> Self::Sig;
+
     /// Update key by taking a mutable reference to `self`
     fn update(&mut self) -> Result<(), Error>;
-    /// Update key by taking a mutable reference to a slice
-    fn update_slice(key_slice: &mut [u8], period: u32) -> Result<(), Error>;
+
+    /// Convert the slice of bytes into `Self`.
+    ///
+    /// # Errors
+    /// The function fails if
+    /// * `bytes.len()` is not of the expected size
+    fn from_bytes(bytes: &[u8]) -> Result<Self, Error>;
+
+    /// Convert `Self` into it's byte representation. In particular, the encoding returns
+    /// the following array of size `Self::SIZE + 4`:
+    /// ( sk_{-1} || seed || self.lhs_pk || self.rhs_pk || period )
+    /// where `sk_{-1}` is the secret secret key of lower depth.
+    /// Note that the period is only included in the last layer.
+    fn as_bytes(&self) -> &[u8];
 }
 
 /// Trait that defines a KES signature
