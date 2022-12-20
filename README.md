@@ -1,8 +1,5 @@
-# Key Evolving Signatures ![CI workflow](https://github.com/input-output-hk/kes/actions/workflows/ci.yml/badge.svg) ![crates.io](https://img.shields.io/crates/v/kes-summed-ed25519.svg)
+# Key Evolving Signatures ![CI workflow](https://github.com/input-output-hk/kes/actions/workflows/ci.yml/badge.svg) ![crates.io](https://img.shields.io/crates/v/kes-summed-ed25519.svg) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Disclaimer:** This crate is ongoing work, and has not been audited.
-
-## Rust implementation of KES
 `kes-sumed-ed25519` is a pure rust implementation of Key Evolving Signatures, following the paper 
 from ["Composition and Efficiency Tradeoffs for Forward-Secure Digital Signatures"](https://eprint.iacr.org/2001/034)
 by Malkin, Micciancio and Miner. In particular, we implement the "sum" composition, from Section
@@ -62,3 +59,6 @@ This decision is motivated by two reasons:
 This repo is a copy and modification of 
 [kes-mmm-sumed25519](https://github.com/input-output-hk/kes-mmm-sumed25519). The old repo
 remains unchanged for historical purposes. 
+
+## Disclaimer
+This crate has not been audited. Use at your own risk.

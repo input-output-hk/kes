@@ -7,7 +7,7 @@ license = "Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/input-output-hk/kes"
 categories = [ "cryptography" ]
-description = "Key Evolving Signature for ouroboros praos"
+description = "Key Evolving Signature"
 keywords = [ "Crypto", "KES", "Ed25519", "MMM", "Sum" ]
 
 [dependencies]
