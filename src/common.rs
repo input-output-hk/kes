@@ -29,9 +29,7 @@ pub struct PublicKey(
 );
 
 impl PublicKey {
-    /// Compute a KES `PublicKey` from an ed25519 key. This function converts the ed25519
-    /// key into its byte representation and returns it as `Self`.
-    pub fn from_ed25519_publickey(public: &ed25519::PublicKey) -> Self {
+    pub(crate) fn from_ed25519_publickey(public: &ed25519::PublicKey) -> Self {
         let mut out = [0u8; PUBLIC_KEY_SIZE];
         out.copy_from_slice(public.as_bytes());
         PublicKey(out)
@@ -63,7 +61,7 @@ impl PublicKey {
     }
 
     /// Hash two public keys using Blake2b
-    pub fn hash_pair(&self, other: &PublicKey) -> PublicKey {
+    pub(crate) fn hash_pair(&self, other: &PublicKey) -> PublicKey {
         let mut out = [0u8; 32];
         let mut h = VarBlake2b::new(32).expect("valid size");
         h.update(self.0);

@@ -218,15 +218,6 @@ impl Sum0CompactKes {
         Err(Error::KeyCannotBeUpdatedMore)
     }
 
-    pub(crate) fn sign_compact(&self, m: &[u8], _: u32) -> <Self as KesSk>::Sig {
-        let secret = EdSecretKey::from_bytes(&self.0)
-            .expect("Seed is defined with 32 bytes, so it won't fail.");
-        let public = (&secret).into();
-        let ed_sk = EdKeypair { secret, public };
-        Sum0CompactKesSig(ed_sk.sign(m), public)
-    }
-
-
     pub(crate) fn keygen_slice(in_slice: &mut [u8], opt_seed: Option<&mut [u8]>) -> PublicKey {
         let secret = if let Some(seed) = opt_seed {
             assert_eq!(

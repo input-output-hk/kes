@@ -42,7 +42,7 @@
 //! other words, the number of individual hashes to be stored equals the depth
 //! of the Merkle tree.
 
-pub mod common;
+mod common;
 mod errors;
 pub mod kes;
 mod single_kes;
@@ -51,3 +51,5 @@ pub mod traits;
 #[cfg(feature = "serde_enabled")]
 #[macro_use]
 extern crate serde_with;
+
+pub use common::PublicKey;
