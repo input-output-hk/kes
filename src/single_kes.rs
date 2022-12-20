@@ -77,14 +77,9 @@ impl Sum0Kes {
 
     pub(crate) fn keygen_slice(in_slice: &mut [u8], opt_seed: Option<&mut [u8]>) -> PublicKey {
         let secret = if let Some(seed) = opt_seed {
-            assert_eq!(
-                in_slice.len(),
-                Self::SIZE,
-                "Input size is incorrect."
-            );
+            assert_eq!(in_slice.len(), Self::SIZE, "Input size is incorrect.");
 
-            let sk = EdSecretKey::from_bytes(seed)
-                .expect("Size of the seed is incorrect.");
+            let sk = EdSecretKey::from_bytes(seed).expect("Size of the seed is incorrect.");
 
             seed.copy_from_slice(&[0u8; 32]);
             sk
@@ -114,8 +109,8 @@ impl Sum0Kes {
     }
 
     pub(crate) fn sign_from_slice(sk: &[u8], m: &[u8]) -> <Self as KesSk>::Sig {
-        let secret = EdSecretKey::from_bytes(sk)
-            .expect("Seed is defined with 32 bytes, so it won't fail.");
+        let secret =
+            EdSecretKey::from_bytes(sk).expect("Seed is defined with 32 bytes, so it won't fail.");
         let public = (&secret).into();
         let ed_sk = EdKeypair { secret, public };
         Sum0KesSig(ed_sk.sign(m))
@@ -220,14 +215,9 @@ impl Sum0CompactKes {
 
     pub(crate) fn keygen_slice(in_slice: &mut [u8], opt_seed: Option<&mut [u8]>) -> PublicKey {
         let secret = if let Some(seed) = opt_seed {
-            assert_eq!(
-                in_slice.len(),
-                Self::SIZE,
-                "Input size is incorrect."
-            );
+            assert_eq!(in_slice.len(), Self::SIZE, "Input size is incorrect.");
 
-            let sk = EdSecretKey::from_bytes(seed)
-                .expect("Size of the seed is incorrect.");
+            let sk = EdSecretKey::from_bytes(seed).expect("Size of the seed is incorrect.");
 
             seed.copy_from_slice(&[0u8; 32]);
             sk
@@ -257,8 +247,8 @@ impl Sum0CompactKes {
     }
 
     pub(crate) fn sign_from_slice(sk: &[u8], m: &[u8], _period: u32) -> <Self as KesSk>::Sig {
-        let secret = EdSecretKey::from_bytes(sk)
-            .expect("Seed is defined with 32 bytes, so it won't fail.");
+        let secret =
+            EdSecretKey::from_bytes(sk).expect("Seed is defined with 32 bytes, so it won't fail.");
         let public = (&secret).into();
         let ed_sk = EdKeypair { secret, public };
         Sum0CompactKesSig(ed_sk.sign(m), public)

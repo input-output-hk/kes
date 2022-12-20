@@ -13,14 +13,19 @@ use std::cmp::Ordering;
 use zeroize::Zeroize;
 
 #[cfg(feature = "serde_enabled")]
-use serde::{Deserialize, Serialize};
+use {
+    serde::{Deserialize, Serialize},
+    serde_with::{As, Bytes},
+};
 
 macro_rules! sum_kes {
     ($name:ident, $signame:ident, $sk:ident, $sigma:ident, $depth:expr, $doc:expr) => {
         #[derive(Debug, Zeroize)]
         #[zeroize(drop)]
+        #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
         #[doc=$doc]
         pub struct $name(
+            #[cfg_attr(feature = "serde_enabled", serde(with = "As::<Bytes>"))]
             [u8; 4 + INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2)],
         );
 
@@ -36,7 +41,8 @@ macro_rules! sum_kes {
         // First we implement the KES traits.
         impl KesSk for $name {
             type Sig = $signame;
-            const SIZE: usize = INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2);
+            const SIZE: usize =
+                INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2);
             fn keygen(seed: &mut [u8]) -> (Self, PublicKey) {
                 let mut data = [0u8; Self::SIZE + 4];
                 let pk = Self::keygen_slice(&mut data[..Self::SIZE], Some(seed));
@@ -114,18 +120,13 @@ macro_rules! sum_kes {
                 Ok(())
             }
 
-            pub(crate) fn keygen_slice(in_slice: &mut [u8], opt_seed: Option<&mut [u8]>) -> PublicKey {
+            pub(crate) fn keygen_slice(
+                in_slice: &mut [u8],
+                opt_seed: Option<&mut [u8]>,
+            ) -> PublicKey {
                 let (mut r0, mut seed) = if let Some(in_seed) = opt_seed {
-                    assert_eq!(
-                        in_slice.len(),
-                        Self::SIZE,
-                        "Input size is incorrect."
-                    );
-                    assert_eq!(
-                        in_seed.len(),
-                        Seed::SIZE,
-                        "Input seed is incorrect."
-                    );
+                    assert_eq!(in_slice.len(), Self::SIZE, "Input size is incorrect.");
+                    assert_eq!(in_seed.len(), Seed::SIZE, "Input seed is incorrect.");
                     Seed::split_slice(in_seed)
                 } else {
                     assert_eq!(
@@ -154,12 +155,10 @@ macro_rules! sum_kes {
             pub(crate) fn sign_from_slice(sk: &[u8], m: &[u8]) -> <Self as KesSk>::Sig {
                 let sigma = $sk::sign_from_slice(&sk[..$sk::SIZE], m);
 
-                let lhs_pk =
-                    PublicKey::from_bytes(&sk[$sk::SIZE + 32..$sk::SIZE + 64])
-                        .expect("Won't fail as slice has size 32");
-                let rhs_pk =
-                    PublicKey::from_bytes(&sk[$sk::SIZE + 64..$sk::SIZE + 96])
-                        .expect("Won't fail as slice has size 32");
+                let lhs_pk = PublicKey::from_bytes(&sk[$sk::SIZE + 32..$sk::SIZE + 64])
+                    .expect("Won't fail as slice has size 32");
+                let rhs_pk = PublicKey::from_bytes(&sk[$sk::SIZE + 64..$sk::SIZE + 96])
+                    .expect("Won't fail as slice has size 32");
                 $signame {
                     sigma,
                     lhs_pk,
@@ -217,8 +216,10 @@ macro_rules! sum_compact_kes {
     ($name:ident, $signame:ident, $sk:ident, $sigma:ident, $depth:expr, $doc:expr) => {
         #[derive(Debug, Zeroize)]
         #[zeroize(drop)]
+        #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
         #[doc=$doc]
         pub struct $name(
+            #[cfg_attr(feature = "serde_enabled", serde(with = "As::<Bytes>"))]
             [u8; 4 + INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2)],
         );
 
@@ -233,7 +234,8 @@ macro_rules! sum_compact_kes {
         // First we implement the KES traits.
         impl KesSk for $name {
             type Sig = $signame;
-            const SIZE: usize = INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2);
+            const SIZE: usize =
+                INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2);
 
             /// Function that takes a mutable
             fn keygen(master_seed: &mut [u8]) -> (Self, PublicKey) {
@@ -312,18 +314,13 @@ macro_rules! sum_compact_kes {
                 Ok(())
             }
 
-            pub(crate) fn keygen_slice(in_slice: &mut [u8], opt_seed: Option<&mut [u8]>) -> PublicKey {
+            pub(crate) fn keygen_slice(
+                in_slice: &mut [u8],
+                opt_seed: Option<&mut [u8]>,
+            ) -> PublicKey {
                 let (mut r0, mut seed) = if let Some(in_seed) = opt_seed {
-                    assert_eq!(
-                        in_slice.len(),
-                        Self::SIZE,
-                        "Size of the seed is incorrect."
-                    );
-                    assert_eq!(
-                        in_seed.len(),
-                        Seed::SIZE,
-                        "Input seed is incorrect."
-                    );
+                    assert_eq!(in_slice.len(), Self::SIZE, "Size of the seed is incorrect.");
+                    assert_eq!(in_seed.len(), Seed::SIZE, "Input seed is incorrect.");
                     Seed::split_slice(in_seed)
                 } else {
                     assert_eq!(
@@ -348,7 +345,11 @@ macro_rules! sum_compact_kes {
                 pk
             }
 
-            pub(crate) fn sign_from_slice(sk: &[u8], m: &[u8], period: u32) -> <Self as KesSk>::Sig {
+            pub(crate) fn sign_from_slice(
+                sk: &[u8],
+                m: &[u8],
+                period: u32,
+            ) -> <Self as KesSk>::Sig {
                 let t0 = Depth($depth).half();
                 let mut pk_bytes = [0u8; 32];
                 let sigma = if period < t0 {
