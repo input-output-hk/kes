@@ -1,11 +1,12 @@
 [package]
 name = "kes-summed-ed25519"
 version = "0.1.0"
-authors = ["Vincent Hanquez <vincent.hanquez@iohk.io>", "Iñigo Querejeta Azurmendi <querejeta.azurmendi@iohk.io>"]
+authors = ["dev@iohk.io"]
 edition = "2018"
 license = "Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/input-output-hk/kes"
+homepage = "https://github.com/input-output-hk/kes"
 categories = [ "cryptography" ]
 description = "Key Evolving Signature"
 keywords = [ "Crypto", "KES", "Ed25519", "MMM", "Sum" ]

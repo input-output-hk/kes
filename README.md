@@ -12,7 +12,7 @@ algorithms up to depth 7. However, if you require a higher depth key, feel free 
 issue/PR. 
 
 ## Library usage
-This library exposes `SumXKes` for `X` in [0,7]. A KES algorithm with depth `X` can evolve the key 
+This library exposes `SumXKes` for `X` in [2,7]. A KES algorithm with depth `X` can evolve the key 
 `2^X`. When a secret key is evolved, the old seed is overwritten with zeroes. 
 
 ```rust
