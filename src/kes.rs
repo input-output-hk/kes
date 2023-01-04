@@ -67,13 +67,13 @@ macro_rules! sum_kes {
                 self.0[Self::SIZE..].copy_from_slice(&(period + 1).to_be_bytes());
                 Ok(())
             }
-            
+
             fn get_period(&self) -> u32 {
                 let mut u32_bytes = [0u8; 4];
                 u32_bytes.copy_from_slice(&self.0[Self::SIZE..]);
                 u32::from_be_bytes(u32_bytes)
             }
-            
+
             fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
                 if bytes.len() != Self::SIZE + 4 {
                     // We need to account for the seed
@@ -273,7 +273,7 @@ macro_rules! sum_compact_kes {
                 self.0[Self::SIZE..].copy_from_slice(&(period + 1).to_be_bytes());
                 Ok(())
             }
-            
+
             fn get_period(&self) -> u32 {
                 let mut u32_bytes = [0u8; 4];
                 u32_bytes.copy_from_slice(&self.0[Self::SIZE..]);
