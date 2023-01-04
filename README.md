@@ -62,3 +62,9 @@ remains unchanged for historical purposes.
 
 ## Disclaimer
 This crate has not been audited. Use at your own risk.
+
+## Contribution
+Unless you explicitly state otherwise, any contribution 
+intentionally submitted for inclusion in the work by you, 
+as defined in the Apache-2.0 license, shall be licensed 
+as above, without any additional terms or conditions.
