@@ -68,6 +68,10 @@ impl KesSk for Sum0Kes {
     fn as_bytes(&self) -> &[u8] {
         &self.0
     }
+
+    fn get_period(&self) -> u32 {
+        0
+    }
 }
 
 impl Sum0Kes {
@@ -183,6 +187,10 @@ impl KesSk for Sum0CompactKes {
 
     fn update(&mut self) -> Result<(), Error> {
         Err(Error::KeyCannotBeUpdatedMore)
+    }
+
+    fn get_period(&self) -> u32 {
+        0
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {

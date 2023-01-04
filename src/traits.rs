@@ -17,6 +17,9 @@ pub trait KesSk: Sized {
     /// Update key by taking a mutable reference to `self`
     fn update(&mut self) -> Result<(), Error>;
 
+    /// Return the current period of the secret key
+    fn get_period(&self) -> u32;
+
     /// Convert the slice of bytes into `Self`.
     ///
     /// # Errors

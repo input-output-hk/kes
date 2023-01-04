@@ -67,6 +67,13 @@ macro_rules! sum_kes {
                 self.0[Self::SIZE..].copy_from_slice(&(period + 1).to_be_bytes());
                 Ok(())
             }
+            
+            fn get_period(&self) -> u32 {
+                let mut u32_bytes = [0u8; 4];
+                u32_bytes.copy_from_slice(&self.0[Self::SIZE..]);
+                u32::from_be_bytes(u32_bytes)
+            }
+            
             fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
                 if bytes.len() != Self::SIZE + 4 {
                     // We need to account for the seed
@@ -265,6 +272,12 @@ macro_rules! sum_compact_kes {
 
                 self.0[Self::SIZE..].copy_from_slice(&(period + 1).to_be_bytes());
                 Ok(())
+            }
+            
+            fn get_period(&self) -> u32 {
+                let mut u32_bytes = [0u8; 4];
+                u32_bytes.copy_from_slice(&self.0[Self::SIZE..]);
+                u32::from_be_bytes(u32_bytes)
             }
 
             fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
@@ -527,6 +540,8 @@ mod test {
         let dummy_message = b"tilin";
         let sigma = skey.sign(dummy_message);
 
+        assert_eq!(skey.get_period(), 0);
+
         assert!(sigma.verify(0, &pkey, dummy_message).is_ok());
 
         // Key can be updated once
@@ -546,6 +561,8 @@ mod test {
             assert!(skey.update().is_ok());
         }
 
+        assert_eq!(skey.get_period(), 15);
+
         let sigma_15 = skey.sign(dummy_message);
         assert!(sigma_15.verify(15, &pkey, dummy_message).is_ok())
     }
@@ -555,6 +572,8 @@ mod test {
         let (mut skey, pkey) = Sum1CompactKes::keygen(&mut [0u8; 32]);
         let dummy_message = b"tilin";
         let sigma = skey.sign(dummy_message);
+
+        assert_eq!(skey.get_period(), 0);
 
         assert!(sigma.verify(0, &pkey, dummy_message).is_ok());
 
@@ -574,6 +593,8 @@ mod test {
         for _ in 0..15 {
             assert!(skey.update().is_ok());
         }
+
+        assert_eq!(skey.get_period(), 15);
     }
 }
 
