@@ -3,13 +3,14 @@ use crate::common::PublicKey;
 use crate::errors::Error;
 
 /// Trait that defined a Kes secret key
-pub trait KesSk: Sized {
+pub trait KesSk<'a>: Sized {
     /// Type of the associated signature
     type Sig;
     /// Size of SK
     const SIZE: usize;
+
     /// Key generation
-    fn keygen(seed: &mut [u8]) -> (Self, PublicKey);
+    fn keygen(key_buffer: &'a mut [u8], seed: &'a mut [u8]) -> (Self, PublicKey);
 
     /// KES signature, using `self`.
     fn sign(&self, m: &[u8]) -> Self::Sig;
@@ -25,7 +26,7 @@ pub trait KesSk: Sized {
     /// # Errors
     /// The function fails if
     /// * `bytes.len()` is not of the expected size
-    fn from_bytes(bytes: &[u8]) -> Result<Self, Error>;
+    fn from_bytes(bytes: &'a mut [u8]) -> Result<Self, Error>;
 
     /// Convert `Self` into it's byte representation. In particular, the encoding returns
     /// the following array of size `Self::SIZE + 4`:

@@ -10,7 +10,6 @@ use crate::errors::Error;
 use crate::single_kes::{Sum0CompactKes, Sum0CompactKesSig, Sum0Kes, Sum0KesSig};
 use crate::traits::{KesCompactSig, KesSig, KesSk};
 use std::cmp::Ordering;
-use zeroize::Zeroize;
 
 #[cfg(feature = "serde_enabled")]
 use {
@@ -20,13 +19,12 @@ use {
 
 macro_rules! sum_kes {
     ($name:ident, $signame:ident, $sk:ident, $sigma:ident, $depth:expr, $doc:expr) => {
-        #[derive(Debug, Zeroize)]
-        #[zeroize(drop)]
+        #[derive(Debug)]
         #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
         #[doc=$doc]
-        pub struct $name(
+        pub struct $name<'a>(
             #[cfg_attr(feature = "serde_enabled", serde(with = "As::<Bytes>"))]
-            [u8; 4 + INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2)],
+            &'a mut [u8], // ; 4 + INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2) todo
         );
 
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,18 +37,20 @@ macro_rules! sum_kes {
         }
 
         // First we implement the KES traits.
-        impl KesSk for $name {
+        impl<'a> KesSk<'a> for $name<'a> {
             type Sig = $signame;
             const SIZE: usize =
                 INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2);
-            fn keygen(seed: &mut [u8]) -> (Self, PublicKey) {
-                let mut data = [0u8; Self::SIZE + 4];
-                let pk = Self::keygen_slice(&mut data[..Self::SIZE], Some(seed));
+            fn keygen(key_buffer: &'a mut [u8], seed: &'a mut [u8]) -> (Self, PublicKey) {
+                assert_eq!(key_buffer.len(), Self::SIZE + 4);
+                assert_eq!(seed.len(), 32);
+
+                let pk = Self::keygen_slice(&mut key_buffer[..Self::SIZE], Some(seed));
 
                 // We write the period the the main data.
-                data[Self::SIZE..].copy_from_slice(&0u32.to_be_bytes());
+                key_buffer[Self::SIZE..].copy_from_slice(&0u32.to_be_bytes());
 
-                (Self(data), pk)
+                (Self(key_buffer), pk)
             }
 
             fn sign(&self, m: &[u8]) -> Self::Sig {
@@ -74,19 +74,17 @@ macro_rules! sum_kes {
                 u32::from_be_bytes(u32_bytes)
             }
 
-            fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+            fn from_bytes(bytes: &'a mut [u8]) -> Result<Self, Error> {
                 if bytes.len() != Self::SIZE + 4 {
                     // We need to account for the seed
                     return Err(Error::InvalidSecretKeySize(bytes.len()));
                 }
 
-                let mut key = [0u8; Self::SIZE + 4];
-                key.copy_from_slice(bytes);
-                Ok(Self(key))
+                Ok(Self(bytes))
             }
 
             fn as_bytes(&self) -> &[u8] {
-                &self.0
+                self.0
             }
         }
 
@@ -107,7 +105,7 @@ macro_rules! sum_kes {
             }
         }
 
-        impl $name {
+        impl<'a> $name<'a> {
             pub(crate) fn update_slice(key_slice: &mut [u8], period: u32) -> Result<(), Error> {
                 if period + 1 == Depth($depth).total() {
                     return Err(Error::KeyCannotBeUpdatedMore);
@@ -146,9 +144,12 @@ macro_rules! sum_kes {
 
                 // We copy the seed before overwriting with zeros (in the `keygen` call).
                 in_slice[$sk::SIZE..$sk::SIZE + 32].copy_from_slice(&seed);
+                // Buffer for temp key
+                let mut temp_buffer = [0u8; $sk::SIZE + 4];
 
                 let pk_0 = $sk::keygen_slice(&mut in_slice[..$sk::SIZE], Some(&mut r0));
-                let (_, pk_1) = $sk::keygen(&mut seed);
+                let (_, pk_1) = $sk::keygen(&mut temp_buffer, &mut seed);
+                temp_buffer[..].copy_from_slice(&[0u8; $sk::SIZE + 4]);
 
                 let pk = pk_0.hash_pair(&pk_1);
 
@@ -159,7 +160,7 @@ macro_rules! sum_kes {
                 pk
             }
 
-            pub(crate) fn sign_from_slice(sk: &[u8], m: &[u8]) -> <Self as KesSk>::Sig {
+            pub(crate) fn sign_from_slice(sk: &[u8], m: &[u8]) -> <Self as KesSk<'a>>::Sig {
                 let sigma = $sk::sign_from_slice(&sk[..$sk::SIZE], m);
 
                 let lhs_pk = PublicKey::from_bytes(&sk[$sk::SIZE + 32..$sk::SIZE + 64])
@@ -221,13 +222,12 @@ macro_rules! sum_kes {
 }
 macro_rules! sum_compact_kes {
     ($name:ident, $signame:ident, $sk:ident, $sigma:ident, $depth:expr, $doc:expr) => {
-        #[derive(Debug, Zeroize)]
-        #[zeroize(drop)]
+        #[derive(Debug)]
         #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
         #[doc=$doc]
-        pub struct $name(
+        pub struct $name<'a>(
             #[cfg_attr(feature = "serde_enabled", serde(with = "As::<Bytes>"))]
-            [u8; 4 + INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2)],
+            &'a mut [u8], // todo ; 4 + INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2)
         );
 
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -239,20 +239,22 @@ macro_rules! sum_compact_kes {
         }
 
         // First we implement the KES traits.
-        impl KesSk for $name {
+        impl<'a> KesSk<'a> for $name<'a> {
             type Sig = $signame;
             const SIZE: usize =
                 INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2);
 
             /// Function that takes a mutable
-            fn keygen(master_seed: &mut [u8]) -> (Self, PublicKey) {
-                let mut data = [0u8; Self::SIZE + 4];
-                let pk = Self::keygen_slice(&mut data[..Self::SIZE], Some(master_seed));
+            fn keygen(key_buffer: &'a mut [u8], master_seed: &mut [u8]) -> (Self, PublicKey) {
+                assert_eq!(key_buffer.len(), Self::SIZE + 4);
+                assert_eq!(master_seed.len(), 32);
+
+                let pk = Self::keygen_slice(&mut key_buffer[..Self::SIZE], Some(master_seed));
 
                 // We write the period the the main data.
-                data[Self::SIZE..].copy_from_slice(&0u32.to_be_bytes());
+                key_buffer[Self::SIZE..].copy_from_slice(&0u32.to_be_bytes());
 
-                (Self(data), pk)
+                (Self(key_buffer), pk)
             }
 
             fn sign(&self, m: &[u8]) -> Self::Sig {
@@ -280,18 +282,16 @@ macro_rules! sum_compact_kes {
                 u32::from_be_bytes(u32_bytes)
             }
 
-            fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+            fn from_bytes(bytes: &'a mut [u8]) -> Result<Self, Error> {
                 if bytes.len() != Self::SIZE + 4 {
                     return Err(Error::InvalidSecretKeySize(bytes.len()));
                 }
 
-                let mut key = [0u8; Self::SIZE + 4];
-                key.copy_from_slice(bytes);
-                Ok(Self(key))
+                Ok(Self(bytes))
             }
 
             fn as_bytes(&self) -> &[u8] {
-                &self.0
+                self.0
             }
         }
 
@@ -307,7 +307,7 @@ macro_rules! sum_compact_kes {
             }
         }
 
-        impl $name {
+        impl<'a> $name<'a> {
             pub(crate) fn update_slice(key_slice: &mut [u8], period: u32) -> Result<(), Error> {
                 if period + 1 == Depth($depth).total() {
                     return Err(Error::KeyCannotBeUpdatedMore);
@@ -345,9 +345,12 @@ macro_rules! sum_compact_kes {
                 };
 
                 in_slice[$sk::SIZE..$sk::SIZE + 32].copy_from_slice(&seed);
+                // Buffer for temp key
+                let mut temp_buffer = [0u8; $sk::SIZE + 4];
 
                 let pk_0 = $sk::keygen_slice(&mut in_slice[..$sk::SIZE], Some(&mut r0));
-                let (_, pk_1) = $sk::keygen(&mut seed);
+                let (_, pk_1) = $sk::keygen(&mut temp_buffer, &mut seed);
+                temp_buffer[..].copy_from_slice(&[0u8; $sk::SIZE + 4]);
 
                 let pk = pk_0.hash_pair(&pk_1);
 
@@ -362,7 +365,7 @@ macro_rules! sum_compact_kes {
                 sk: &[u8],
                 m: &[u8],
                 period: u32,
-            ) -> <Self as KesSk>::Sig {
+            ) -> <Self as KesSk<'a>>::Sig {
                 let t0 = Depth($depth).half();
                 let mut pk_bytes = [0u8; 32];
                 let sigma = if period < t0 {
@@ -536,7 +539,9 @@ mod test {
 
     #[test]
     fn buff_single() {
-        let (mut skey, pkey) = Sum1Kes::keygen(&mut [0u8; 32]);
+        let mut skey_buffer = [0u8; Sum1Kes::SIZE];
+        let mut seed = [0u8; Seed::SIZE];
+        let (mut skey, pkey) = Sum1Kes::keygen(&mut skey_buffer, &mut seed);
         let dummy_message = b"tilin";
         let sigma = skey.sign(dummy_message);
 
@@ -550,7 +555,9 @@ mod test {
 
     #[test]
     fn buff_4() {
-        let (mut skey, pkey) = Sum4Kes::keygen(&mut [0u8; 32]);
+        let mut skey_buffer = [0u8; Sum4Kes::SIZE];
+        let mut seed = [0u8; Seed::SIZE];
+        let (mut skey, pkey) = Sum4Kes::keygen(&mut skey_buffer, &mut seed);
         let dummy_message = b"tilin";
         let sigma = skey.sign(dummy_message);
 
@@ -569,7 +576,9 @@ mod test {
 
     #[test]
     fn buff_compact_single() {
-        let (mut skey, pkey) = Sum1CompactKes::keygen(&mut [0u8; 32]);
+        let mut skey_buffer = [0u8; Sum1CompactKes::SIZE];
+        let mut seed = [0u8; Seed::SIZE];
+        let (mut skey, pkey) = Sum1CompactKes::keygen(&mut skey_buffer, &mut seed);
         let dummy_message = b"tilin";
         let sigma = skey.sign(dummy_message);
 
@@ -583,7 +592,9 @@ mod test {
 
     #[test]
     fn buff_compact_4() {
-        let (mut skey, pkey) = Sum4CompactKes::keygen(&mut [0u8; 32]);
+        let mut skey_buffer = [0u8; Sum4CompactKes::SIZE];
+        let mut seed = [0u8; Seed::SIZE];
+        let (mut skey, pkey) = Sum4CompactKes::keygen(&mut skey_buffer, &mut seed);
         let dummy_message = b"tilin";
         let sigma = skey.sign(dummy_message);
 
@@ -605,7 +616,8 @@ mod test_serde {
 
     #[test]
     fn test_serde_1() {
-        let (skey, pkey) = Sum1Kes::keygen(&mut [0u8; 32]);
+        let mut skey_buffer = [0u8; Sum1Kes::SIZE];
+        let (skey, pkey) = Sum1Kes::keygen(&mut skey_buffer, &mut [0u8; 32]);
 
         let pkey_bytes = serde_json::to_string(&pkey).unwrap();
         let deser_pkey: PublicKey = serde_json::from_str(&pkey_bytes).unwrap();
@@ -640,7 +652,8 @@ mod test_serde {
 
     #[test]
     fn test_serde_4() {
-        let (skey, pkey) = Sum4Kes::keygen(&mut [0u8; 32]);
+        let mut skey_buffer = [0u8; Sum4Kes::SIZE];
+        let (skey, pkey) = Sum4Kes::keygen(&mut skey_buffer, &mut [0u8; 32]);
 
         let pkey_bytes = serde_json::to_string(&pkey).unwrap();
         let deser_pkey: PublicKey = serde_json::from_str(&pkey_bytes).unwrap();
@@ -675,7 +688,8 @@ mod test_serde {
 
     #[test]
     fn test_serde_6() {
-        let (skey, pkey) = Sum6Kes::keygen(&mut [0u8; 32]);
+        let mut skey_buffer = [0u8; Sum6Kes::SIZE];
+        let (skey, pkey) = Sum6Kes::keygen(&mut skey_buffer, &mut [0u8; 32]);
 
         let pkey_bytes = serde_json::to_string(&pkey).unwrap();
         let deser_pkey: PublicKey = serde_json::from_str(&pkey_bytes).unwrap();

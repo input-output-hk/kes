@@ -9,15 +9,13 @@ use ed25519_dalek::{
     Signature as EdSignature, Signer, SIGNATURE_LENGTH,
 };
 pub use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
-use zeroize::Zeroize;
 
 #[cfg(feature = "serde_enabled")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Zeroize)]
-#[zeroize(drop)]
+#[derive(Debug)]
 /// Single KES instance, which is a wrapper over ed25519.
-pub struct Sum0Kes(pub(crate) [u8; SECRET_KEY_LENGTH]);
+pub struct Sum0Kes<'a>(pub(crate) &'a [u8]);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
@@ -27,17 +25,23 @@ pub struct Sum0KesSig(
     #[cfg_attr(feature = "serde_enabled", serde_as(as = "Bytes"))] pub(crate) EdSignature,
 );
 
-impl KesSk for Sum0Kes {
+impl<'a> KesSk<'a> for Sum0Kes<'a> {
     type Sig = Sum0KesSig;
     const SIZE: usize = SECRET_KEY_LENGTH;
 
-    fn keygen(master_seed: &mut [u8]) -> (Self, PublicKey) {
+    fn keygen(key_buffer: &'a mut [u8], master_seed: &mut [u8]) -> (Self, PublicKey) {
+        assert_eq!(key_buffer.len(), Self::SIZE + 4);
+        assert_eq!(master_seed.len(), 32);
+
         let secret = EdSecretKey::from_bytes(master_seed)
             .expect("Seed is defined with 32 bytes, so it won't fail.");
         let public = (&secret).into();
+        // We copy the secret key to the key buffer and we drop the secret key (which zeros de data)
+        key_buffer.copy_from_slice(secret.as_bytes());
+        drop(secret);
         master_seed.copy_from_slice(&[0u8; 32]);
         (
-            Sum0Kes(secret.to_bytes()),
+            Sum0Kes(key_buffer),
             PublicKey::from_ed25519_publickey(&public),
         )
     }
@@ -54,19 +58,17 @@ impl KesSk for Sum0Kes {
         Sum0KesSig(ed_sk.sign(m))
     }
 
-    fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+    fn from_bytes(bytes: &'a mut [u8]) -> Result<Self, Error> {
         if bytes.len() != Self::SIZE + 4 {
             // We need to account for the seed
             return Err(Error::InvalidSecretKeySize(bytes.len()));
         }
 
-        let mut key = [0u8; Self::SIZE];
-        key.copy_from_slice(&bytes[..Self::SIZE]);
-        Ok(Self(key))
+        Ok(Self(bytes))
     }
 
     fn as_bytes(&self) -> &[u8] {
-        &self.0
+        self.0
     }
 
     fn get_period(&self) -> u32 {
@@ -74,7 +76,7 @@ impl KesSk for Sum0Kes {
     }
 }
 
-impl Sum0Kes {
+impl<'a> Sum0Kes<'a> {
     pub(crate) fn update_slice(_: &mut [u8], _: u32) -> Result<(), Error> {
         Err(Error::KeyCannotBeUpdatedMore)
     }
@@ -112,7 +114,7 @@ impl Sum0Kes {
         PublicKey::from_ed25519_publickey(&public)
     }
 
-    pub(crate) fn sign_from_slice(sk: &[u8], m: &[u8]) -> <Self as KesSk>::Sig {
+    pub(crate) fn sign_from_slice(sk: &[u8], m: &[u8]) -> <Self as KesSk<'a>>::Sig {
         let secret =
             EdSecretKey::from_bytes(sk).expect("Seed is defined with 32 bytes, so it won't fail.");
         let public = (&secret).into();
@@ -148,10 +150,9 @@ impl Sum0KesSig {
     }
 }
 
-#[derive(Debug, Zeroize)]
-#[zeroize(drop)]
+#[derive(Debug)]
 /// Single KES instance, which is a wrapper over ed25519.
-pub struct Sum0CompactKes(pub(crate) [u8; SECRET_KEY_LENGTH]);
+pub struct Sum0CompactKes<'a>(pub(crate) &'a [u8]);
 
 /// Singke KES Signature instance, which is a wrapper over ed25519.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -162,17 +163,23 @@ pub struct Sum0CompactKesSig(
     pub(crate) EdPublicKey,
 );
 
-impl KesSk for Sum0CompactKes {
+impl<'a> KesSk<'a> for Sum0CompactKes<'a> {
     type Sig = Sum0CompactKesSig;
     const SIZE: usize = SECRET_KEY_LENGTH;
 
-    fn keygen(master_seed: &mut [u8]) -> (Self, PublicKey) {
+    fn keygen(key_buffer: &'a mut [u8], master_seed: &mut [u8]) -> (Self, PublicKey) {
+        assert_eq!(key_buffer.len(), Self::SIZE + 4);
+        assert_eq!(master_seed.len(), 32);
+
         let secret = EdSecretKey::from_bytes(master_seed)
             .expect("Seed is defined with 32 bytes, so it won't fail.");
         let public = (&secret).into();
+        // We copy the secret key to the key buffer and we drop the secret key (which zeros de data)
+        key_buffer.copy_from_slice(secret.as_bytes());
+        drop(secret);
         master_seed.copy_from_slice(&[0u8; 32]);
         (
-            Sum0CompactKes(secret.to_bytes()),
+            Sum0CompactKes(key_buffer),
             PublicKey::from_ed25519_publickey(&public),
         )
     }
@@ -193,19 +200,17 @@ impl KesSk for Sum0CompactKes {
         0
     }
 
-    fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+    fn from_bytes(bytes: &'a mut [u8]) -> Result<Self, Error> {
         if bytes.len() != Self::SIZE + 4 {
             // We need to account for the seed
             return Err(Error::InvalidSecretKeySize(bytes.len()));
         }
 
-        let mut key = [0u8; Self::SIZE];
-        key.copy_from_slice(&bytes[..Self::SIZE]);
-        Ok(Self(key))
+        Ok(Self(bytes))
     }
 
     fn as_bytes(&self) -> &[u8] {
-        &self.0
+        self.0
     }
 }
 
@@ -216,7 +221,7 @@ impl KesCompactSig for Sum0CompactKesSig {
     }
 }
 
-impl Sum0CompactKes {
+impl<'a> Sum0CompactKes<'a> {
     pub(crate) fn update_slice(_: &mut [u8], _: u32) -> Result<(), Error> {
         Err(Error::KeyCannotBeUpdatedMore)
     }
@@ -254,7 +259,7 @@ impl Sum0CompactKes {
         PublicKey::from_ed25519_publickey(&public)
     }
 
-    pub(crate) fn sign_from_slice(sk: &[u8], m: &[u8], _period: u32) -> <Self as KesSk>::Sig {
+    pub(crate) fn sign_from_slice(sk: &[u8], m: &[u8], _period: u32) -> <Self as KesSk<'a>>::Sig {
         let secret =
             EdSecretKey::from_bytes(sk).expect("Seed is defined with 32 bytes, so it won't fail.");
         let public = (&secret).into();

@@ -42,33 +42,35 @@ use kes_summed_ed25519::traits::KesSk;
 // The following function is required for parsing a Cardano Shelley formatted key
 // into a secret key in this library. Mainly, it appends the period = 0 formatted
 // as a u32.
-fn from_shelley_format<KES: KesSk>(key: &[u8]) -> KES {
+fn from_shelley_format<'a, KES: KesSk<'a>>(key: &'a mut Vec<u8>) -> KES {
     assert_eq!(key.len(), KES::SIZE, "Invalid input size");
-    let mut extended_bytes = key.to_vec();
-    extended_bytes.extend_from_slice(&[0u8; 4]);
+    key.extend_from_slice(&[0u8; 4]);
 
-    KES::from_bytes(&extended_bytes).expect("Invalid format")
+    KES::from_bytes(key).expect("Invalid format")
 }
 
 #[test]
 fn haskel_depth_1() {
     // haskell generated key
-    let h_key: &[u8; 128] = include_bytes!("data/key1.bin");
-    let parsed_h_key: Sum1Kes = from_shelley_format(h_key);
+    let mut h_key= include_bytes!("data/key1.bin").to_vec();
+    let parsed_h_key: Sum1Kes = from_shelley_format(&mut h_key);
 
-    let seed = b"test string of 32 byte of lenght";
-    let (skey, _) = Sum1Kes::keygen(&mut seed.to_owned());
+    let mut key_buffer = [0u8; Sum1Kes::SIZE + 4];
+    let mut seed = [116, 101, 115, 116, 32, 115, 116, 114, 105, 110, 103, 32, 111, 102, 32, 51, 50, 32, 98, 121, 116, 101, 32, 111, 102, 32, 108, 101, 110, 103, 104, 116];
+
+    let (skey, _) = Sum1Kes::keygen(&mut key_buffer, &mut seed);
 
     assert_eq!(skey.as_bytes(), parsed_h_key.as_bytes());
 }
 
 #[test]
 fn haskell_depth_6() {
-    let h_key: &[u8; 608] = include_bytes!("data/key6.bin");
-    let parsed_h_key: Sum6Kes = from_shelley_format(h_key);
+    let mut h_key = include_bytes!("data/key6.bin").to_vec();
+    let parsed_h_key: Sum6Kes = from_shelley_format(&mut h_key);
 
-    let seed = b"test string of 32 byte of lenght";
-    let (mut skey, _) = Sum6Kes::keygen(&mut seed.to_owned());
+    let mut key_buffer = [0u8; Sum6Kes::SIZE + 4];
+    let mut seed = [116, 101, 115, 116, 32, 115, 116, 114, 105, 110, 103, 32, 111, 102, 32, 51, 50, 32, 98, 121, 116, 101, 32, 111, 102, 32, 108, 101, 110, 103, 104, 116];
+    let (mut skey, _) = Sum6Kes::keygen(&mut key_buffer, &mut seed);
 
     assert_eq!(skey.as_bytes(), parsed_h_key.as_bytes());
 
@@ -82,9 +84,10 @@ fn haskell_signature_6() {
     // haskell generated signature
     let h_signature: &[u8; 448] = include_bytes!("data/key6Sig.bin");
 
-    let seed = b"test string of 32 byte of lenght";
+    let mut key_buffer = [0u8; Sum6Kes::SIZE + 4];
+    let mut seed = [116, 101, 115, 116, 32, 115, 116, 114, 105, 110, 103, 32, 111, 102, 32, 51, 50, 32, 98, 121, 116, 101, 32, 111, 102, 32, 108, 101, 110, 103, 104, 116];
     let message = b"test message";
-    let (skey, _) = Sum6Kes::keygen(&mut seed.to_owned());
+    let (skey, _) = Sum6Kes::keygen(&mut key_buffer, &mut seed);
     let signature = skey.sign(message);
     assert_eq!(&signature.to_bytes(), h_signature);
 }
@@ -93,9 +96,10 @@ fn haskell_signature_6() {
 fn haskell_signature_6_update_5() {
     let h_signature: &[u8; 448] = include_bytes!("data/key6Sig5.bin");
 
-    let seed = b"test string of 32 byte of lenght";
+    let mut key_buffer = [0u8; Sum6Kes::SIZE + 4];
+    let mut seed = [116, 101, 115, 116, 32, 115, 116, 114, 105, 110, 103, 32, 111, 102, 32, 51, 50, 32, 98, 121, 116, 101, 32, 111, 102, 32, 108, 101, 110, 103, 104, 116];
     let message = b"test message";
-    let (mut skey, _) = Sum6Kes::keygen(&mut seed.to_owned());
+    let (mut skey, _) = Sum6Kes::keygen(&mut key_buffer, &mut seed);
     skey.update().unwrap();
     skey.update().unwrap();
     skey.update().unwrap();
@@ -109,22 +113,24 @@ fn haskell_signature_6_update_5() {
 #[test]
 fn haskel_compact_depth_1() {
     // haskell generated key
-    let h_key: &[u8; 128] = include_bytes!("data/compactkey1.bin");
-    let parsed_h_key: Sum1CompactKes = from_shelley_format(h_key);
+    let mut h_key = include_bytes!("data/compactkey1.bin").to_vec();
+    let parsed_h_key: Sum1CompactKes = from_shelley_format(&mut h_key);
 
-    let seed = b"test string of 32 byte of lenght";
-    let (skey, _) = Sum1CompactKes::keygen(&mut seed.to_owned());
+    let mut key_buffer = [0u8; Sum1CompactKes::SIZE + 4];
+    let mut seed = [116, 101, 115, 116, 32, 115, 116, 114, 105, 110, 103, 32, 111, 102, 32, 51, 50, 32, 98, 121, 116, 101, 32, 111, 102, 32, 108, 101, 110, 103, 104, 116];
+    let (skey, _) = Sum1CompactKes::keygen(&mut key_buffer, &mut seed);
 
     assert_eq!(skey.as_bytes(), parsed_h_key.as_bytes());
 }
 
 #[test]
 fn haskell_compact_depth_6() {
-    let h_key: &[u8; 608] = include_bytes!("data/compactkey6.bin");
-    let parsed_h_key: Sum6CompactKes = from_shelley_format(h_key);
+    let mut h_key = include_bytes!("data/compactkey6.bin").to_vec();
+    let parsed_h_key: Sum6CompactKes = from_shelley_format(&mut h_key);
 
-    let seed = b"test string of 32 byte of lenght";
-    let (mut skey, _) = Sum6CompactKes::keygen(&mut seed.to_owned());
+    let mut key_buffer = [0u8; Sum6CompactKes::SIZE + 4];
+    let mut seed = [116, 101, 115, 116, 32, 115, 116, 114, 105, 110, 103, 32, 111, 102, 32, 51, 50, 32, 98, 121, 116, 101, 32, 111, 102, 32, 108, 101, 110, 103, 104, 116];
+    let (mut skey, _) = Sum6CompactKes::keygen(&mut key_buffer, &mut seed);
 
     assert_eq!(skey.as_bytes(), parsed_h_key.as_bytes());
 
@@ -138,9 +144,10 @@ fn haskell_compact_signature_6() {
     // haskell generated signature
     let h_signature: &[u8; 288] = include_bytes!("data/compactkey6Sig.bin");
 
-    let seed = b"test string of 32 byte of lenght";
+    let mut key_buffer = [0u8; Sum6CompactKes::SIZE + 4];
+    let mut seed = [116, 101, 115, 116, 32, 115, 116, 114, 105, 110, 103, 32, 111, 102, 32, 51, 50, 32, 98, 121, 116, 101, 32, 111, 102, 32, 108, 101, 110, 103, 104, 116];
     let message = b"test message";
-    let (skey, _) = Sum6CompactKes::keygen(&mut seed.to_owned());
+    let (skey, _) = Sum6CompactKes::keygen(&mut key_buffer, &mut seed);
     let signature = skey.sign(message);
     assert_eq!(&signature.to_bytes(), h_signature);
 }
@@ -149,9 +156,10 @@ fn haskell_compact_signature_6() {
 fn haskell_compact_signature_6_update_5() {
     let h_signature: &[u8; 288] = include_bytes!("data/compactkey6Sig5.bin");
 
-    let seed = b"test string of 32 byte of lenght";
+    let mut key_buffer = [0u8; Sum6CompactKes::SIZE + 4];
+    let mut seed = [116, 101, 115, 116, 32, 115, 116, 114, 105, 110, 103, 32, 111, 102, 32, 51, 50, 32, 98, 121, 116, 101, 32, 111, 102, 32, 108, 101, 110, 103, 104, 116];
     let message = b"test message";
-    let (mut skey, _) = Sum6CompactKes::keygen(&mut seed.to_owned());
+    let (mut skey, _) = Sum6CompactKes::keygen(&mut key_buffer, &mut seed);
     skey.update().unwrap();
     skey.update().unwrap();
     skey.update().unwrap();
