@@ -89,17 +89,13 @@ impl Seed {
         let mut left_seed = [0u8; Self::SIZE];
         let mut right_seed = [0u8; Self::SIZE];
 
-        let mut hleft = VarBlake2b::new(32).expect("valid size");
-        let mut hright = VarBlake2b::new(32).expect("valid size");
-
-        hleft.update([1]);
-        hleft.update(&bytes);
-
-        hright.update([2]);
-        hright.update(&bytes);
-
-        hleft.finalize_variable(|out| left_seed.copy_from_slice(out));
-        hright.finalize_variable(|out| right_seed.copy_from_slice(out));
+        let mut hasher = VarBlake2b::new(32).expect("valid size");
+        hasher.update([1]);
+        hasher.update(&bytes);
+        hasher.finalize_variable_reset(|out| left_seed.copy_from_slice(out));
+        hasher.update([2]);
+        hasher.update(&bytes);
+        hasher.finalize_variable_reset(|out| right_seed.copy_from_slice(out));
 
         bytes.copy_from_slice(&[0u8; Self::SIZE]);
 

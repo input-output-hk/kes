@@ -42,8 +42,10 @@ pub trait KesSk<'a>: Sized {
 /// ```
 /// use kes_summed_ed25519::kes::Sum6Kes;
 /// use kes_summed_ed25519::traits::{KesSig, KesSk};
-///
-/// let (mut skey, pkey) = Sum6Kes::keygen(&mut [0u8; 32]);
+/// // The function caller needs to allocate memory for the secret key
+/// let mut key_buffer = [0u8; Sum6Kes::SIZE + 4];
+/// let mut seed = [0u8; 32];
+/// let (mut skey, pkey) = Sum6Kes::keygen(&mut key_buffer, &mut seed);
 /// let dummy_message = b"tilin";
 /// let sigma = skey.sign(dummy_message);
 ///

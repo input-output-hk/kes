@@ -24,7 +24,7 @@ macro_rules! sum_kes {
         #[doc=$doc]
         pub struct $name<'a>(
             #[cfg_attr(feature = "serde_enabled", serde(with = "As::<Bytes>"))]
-            &'a mut [u8], // ; 4 + INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2) todo
+            &'a mut [u8],
         );
 
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,6 +34,12 @@ macro_rules! sum_kes {
             sigma: $sigma,
             lhs_pk: PublicKey,
             rhs_pk: PublicKey,
+        }
+
+        impl<'a> Drop for $name<'a> {
+            fn drop(&mut self) {
+                self.0.copy_from_slice(&[0u8; Self::SIZE + 4])
+            }
         }
 
         // First we implement the KES traits.
@@ -227,7 +233,7 @@ macro_rules! sum_compact_kes {
         #[doc=$doc]
         pub struct $name<'a>(
             #[cfg_attr(feature = "serde_enabled", serde(with = "As::<Bytes>"))]
-            &'a mut [u8], // todo ; 4 + INDIVIDUAL_SECRET_SIZE + $depth * 32 + $depth * (PUBLIC_KEY_SIZE * 2)
+            &'a mut [u8],
         );
 
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -304,6 +310,12 @@ macro_rules! sum_compact_kes {
                     let recomputed_key = self.sigma.recompute(period - &Depth($depth).half(), m)?;
                     Ok(self.pk.hash_pair(&recomputed_key))
                 }
+            }
+        }
+
+        impl<'a> Drop for $name<'a> {
+            fn drop(&mut self) {
+                self.0.copy_from_slice(&[0u8; Self::SIZE + 4])
             }
         }
 
@@ -539,7 +551,7 @@ mod test {
 
     #[test]
     fn buff_single() {
-        let mut skey_buffer = [0u8; Sum1Kes::SIZE];
+        let mut skey_buffer = [0u8; Sum1Kes::SIZE + 4];
         let mut seed = [0u8; Seed::SIZE];
         let (mut skey, pkey) = Sum1Kes::keygen(&mut skey_buffer, &mut seed);
         let dummy_message = b"tilin";
@@ -555,7 +567,7 @@ mod test {
 
     #[test]
     fn buff_4() {
-        let mut skey_buffer = [0u8; Sum4Kes::SIZE];
+        let mut skey_buffer = [0u8; Sum4Kes::SIZE + 4];
         let mut seed = [0u8; Seed::SIZE];
         let (mut skey, pkey) = Sum4Kes::keygen(&mut skey_buffer, &mut seed);
         let dummy_message = b"tilin";
@@ -576,7 +588,7 @@ mod test {
 
     #[test]
     fn buff_compact_single() {
-        let mut skey_buffer = [0u8; Sum1CompactKes::SIZE];
+        let mut skey_buffer = [0u8; Sum1CompactKes::SIZE + 4];
         let mut seed = [0u8; Seed::SIZE];
         let (mut skey, pkey) = Sum1CompactKes::keygen(&mut skey_buffer, &mut seed);
         let dummy_message = b"tilin";
@@ -592,7 +604,7 @@ mod test {
 
     #[test]
     fn buff_compact_4() {
-        let mut skey_buffer = [0u8; Sum4CompactKes::SIZE];
+        let mut skey_buffer = [0u8; Sum4CompactKes::SIZE + 4];
         let mut seed = [0u8; Seed::SIZE];
         let (mut skey, pkey) = Sum4CompactKes::keygen(&mut skey_buffer, &mut seed);
         let dummy_message = b"tilin";
@@ -616,7 +628,7 @@ mod test_serde {
 
     #[test]
     fn test_serde_1() {
-        let mut skey_buffer = [0u8; Sum1Kes::SIZE];
+        let mut skey_buffer = [0u8; Sum1Kes::SIZE + 4];
         let (skey, pkey) = Sum1Kes::keygen(&mut skey_buffer, &mut [0u8; 32]);
 
         let pkey_bytes = serde_json::to_string(&pkey).unwrap();
@@ -652,7 +664,7 @@ mod test_serde {
 
     #[test]
     fn test_serde_4() {
-        let mut skey_buffer = [0u8; Sum4Kes::SIZE];
+        let mut skey_buffer = [0u8; Sum4Kes::SIZE + 4];
         let (skey, pkey) = Sum4Kes::keygen(&mut skey_buffer, &mut [0u8; 32]);
 
         let pkey_bytes = serde_json::to_string(&pkey).unwrap();
@@ -688,7 +700,7 @@ mod test_serde {
 
     #[test]
     fn test_serde_6() {
-        let mut skey_buffer = [0u8; Sum6Kes::SIZE];
+        let mut skey_buffer = [0u8; Sum6Kes::SIZE + 4];
         let (skey, pkey) = Sum6Kes::keygen(&mut skey_buffer, &mut [0u8; 32]);
 
         let pkey_bytes = serde_json::to_string(&pkey).unwrap();

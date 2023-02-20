@@ -30,6 +30,6 @@ pub enum Error {
 
 impl From<ed25519::SignatureError> for Error {
     fn from(sig: ed25519::SignatureError) -> Error {
-        Error::Ed25519Signature(format!("{:?}", sig))
+        Error::Ed25519Signature(format!("{sig}"))
     }
 }
