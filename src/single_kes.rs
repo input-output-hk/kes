@@ -119,8 +119,7 @@ impl<'a> Sum0Kes<'a> {
     }
 
     pub(crate) fn sign_from_slice(sk: &[u8], m: &[u8]) -> <Self as KesSk<'a>>::Sig {
-        let secret =
-            EdSecretKey::from_bytes(sk).expect("Invalid sk size.");
+        let secret = EdSecretKey::from_bytes(sk).expect("Invalid sk size.");
         let public = (&secret).into();
         let ed_sk = EdKeypair { secret, public };
         Sum0KesSig(ed_sk.sign(m))

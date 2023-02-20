@@ -23,8 +23,7 @@ macro_rules! sum_kes {
         #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
         #[doc=$doc]
         pub struct $name<'a>(
-            #[cfg_attr(feature = "serde_enabled", serde(with = "As::<Bytes>"))]
-            &'a mut [u8],
+            #[cfg_attr(feature = "serde_enabled", serde(with = "As::<Bytes>"))] &'a mut [u8],
         );
 
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -232,8 +231,7 @@ macro_rules! sum_compact_kes {
         #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
         #[doc=$doc]
         pub struct $name<'a>(
-            #[cfg_attr(feature = "serde_enabled", serde(with = "As::<Bytes>"))]
-            &'a mut [u8],
+            #[cfg_attr(feature = "serde_enabled", serde(with = "As::<Bytes>"))] &'a mut [u8],
         );
 
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
