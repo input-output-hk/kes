@@ -14,16 +14,14 @@ use std::cmp::Ordering;
 #[cfg(feature = "serde_enabled")]
 use {
     serde::{Deserialize, Serialize},
-    serde_with::{As, Bytes},
 };
 
 macro_rules! sum_kes {
     ($name:ident, $signame:ident, $sk:ident, $sigma:ident, $depth:expr, $doc:expr) => {
         #[derive(Debug)]
-        #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
         #[doc=$doc]
         pub struct $name<'a>(
-            #[cfg_attr(feature = "serde_enabled", serde(with = "As::<Bytes>"))] &'a mut [u8],
+            &'a mut [u8],
         );
 
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -228,10 +226,9 @@ macro_rules! sum_kes {
 macro_rules! sum_compact_kes {
     ($name:ident, $signame:ident, $sk:ident, $sigma:ident, $depth:expr, $doc:expr) => {
         #[derive(Debug)]
-        #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
         #[doc=$doc]
         pub struct $name<'a>(
-            #[cfg_attr(feature = "serde_enabled", serde(with = "As::<Bytes>"))] &'a mut [u8],
+            &'a mut [u8],
         );
 
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -627,7 +624,8 @@ mod test_serde {
     #[test]
     fn test_serde_1() {
         let mut skey_buffer = [0u8; Sum1Kes::SIZE + 4];
-        let (skey, pkey) = Sum1Kes::keygen(&mut skey_buffer, &mut [0u8; 32]);
+        let mut seed = [0u8; 32];
+        let (skey, pkey) = Sum1Kes::keygen(&mut skey_buffer, &mut seed);
 
         let pkey_bytes = serde_json::to_string(&pkey).unwrap();
         let deser_pkey: PublicKey = serde_json::from_str(&pkey_bytes).unwrap();
@@ -643,7 +641,9 @@ mod test_serde {
         assert_eq!(sigma, deser_sigma);
         assert!(deser_sigma.verify(0, &pkey, dummy_message).is_ok());
 
-        let (skey, pkey) = Sum1CompactKes::keygen(&mut [0u8; 32]);
+        let mut skey_buffer = [0u8; Sum1CompactKes::SIZE + 4];
+        let mut seed = [0u8; 32];
+        let (skey1, pkey) = Sum1CompactKes::keygen(&mut skey_buffer, &mut seed);
 
         let pkey_bytes = serde_json::to_string(&pkey).unwrap();
         let deser_pkey: PublicKey = serde_json::from_str(&pkey_bytes).unwrap();
@@ -651,7 +651,7 @@ mod test_serde {
         assert_eq!(pkey, deser_pkey);
 
         let dummy_message = b"tolon";
-        let sigma = skey.sign(dummy_message);
+        let sigma = skey1.sign(dummy_message);
 
         let sigma_bytes = serde_json::to_string(&sigma).unwrap();
         let deser_sigma: Sum1CompactKesSig = serde_json::from_str(&sigma_bytes).unwrap();
@@ -663,7 +663,8 @@ mod test_serde {
     #[test]
     fn test_serde_4() {
         let mut skey_buffer = [0u8; Sum4Kes::SIZE + 4];
-        let (skey, pkey) = Sum4Kes::keygen(&mut skey_buffer, &mut [0u8; 32]);
+        let mut seed = [0u8; 32];
+        let (skey, pkey) = Sum4Kes::keygen(&mut skey_buffer, &mut seed);
 
         let pkey_bytes = serde_json::to_string(&pkey).unwrap();
         let deser_pkey: PublicKey = serde_json::from_str(&pkey_bytes).unwrap();
@@ -679,7 +680,9 @@ mod test_serde {
         assert_eq!(sigma, deser_sigma);
         assert!(deser_sigma.verify(0, &pkey, dummy_message).is_ok());
 
-        let (skey, pkey) = Sum4CompactKes::keygen(&mut [0u8; 32]);
+        let mut skey_buffer = [0u8; Sum4CompactKes::SIZE + 4];
+        let mut seed = [0u8; 32];
+        let (skey, pkey) = Sum4CompactKes::keygen(&mut skey_buffer, &mut seed);
 
         let pkey_bytes = serde_json::to_string(&pkey).unwrap();
         let deser_pkey: PublicKey = serde_json::from_str(&pkey_bytes).unwrap();
@@ -699,7 +702,8 @@ mod test_serde {
     #[test]
     fn test_serde_6() {
         let mut skey_buffer = [0u8; Sum6Kes::SIZE + 4];
-        let (skey, pkey) = Sum6Kes::keygen(&mut skey_buffer, &mut [0u8; 32]);
+        let mut seed = [0u8; 32];
+        let (skey, pkey) = Sum6Kes::keygen(&mut skey_buffer, &mut seed);
 
         let pkey_bytes = serde_json::to_string(&pkey).unwrap();
         let deser_pkey: PublicKey = serde_json::from_str(&pkey_bytes).unwrap();
@@ -715,7 +719,9 @@ mod test_serde {
         assert_eq!(sigma, deser_sigma);
         assert!(deser_sigma.verify(0, &pkey, dummy_message).is_ok());
 
-        let (skey, pkey) = Sum6CompactKes::keygen(&mut [0u8; 32]);
+        let mut skey_buffer = [0u8; Sum6CompactKes::SIZE + 4];
+        let mut seed = [0u8; 32];
+        let (skey, pkey) = Sum6CompactKes::keygen(&mut skey_buffer, &mut seed);
 
         let pkey_bytes = serde_json::to_string(&pkey).unwrap();
         let deser_pkey: PublicKey = serde_json::from_str(&pkey_bytes).unwrap();
