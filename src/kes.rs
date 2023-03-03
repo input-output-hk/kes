@@ -12,17 +12,13 @@ use crate::traits::{KesCompactSig, KesSig, KesSk};
 use std::cmp::Ordering;
 
 #[cfg(feature = "serde_enabled")]
-use {
-    serde::{Deserialize, Serialize},
-};
+use serde::{Deserialize, Serialize};
 
 macro_rules! sum_kes {
     ($name:ident, $signame:ident, $sk:ident, $sigma:ident, $depth:expr, $doc:expr) => {
         #[derive(Debug)]
         #[doc=$doc]
-        pub struct $name<'a>(
-            &'a mut [u8],
-        );
+        pub struct $name<'a>(&'a mut [u8]);
 
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
@@ -227,9 +223,7 @@ macro_rules! sum_compact_kes {
     ($name:ident, $signame:ident, $sk:ident, $sigma:ident, $depth:expr, $doc:expr) => {
         #[derive(Debug)]
         #[doc=$doc]
-        pub struct $name<'a>(
-            &'a mut [u8],
-        );
+        pub struct $name<'a>(&'a mut [u8]);
 
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         #[cfg_attr(feature = "serde_enabled", derive(Serialize, Deserialize))]
