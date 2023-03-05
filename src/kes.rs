@@ -184,6 +184,14 @@ macro_rules! sum_kes {
 
                 pk0.hash_pair(&pk1)
             }
+
+            #[cfg(feature = "sk_clone_enabled")]
+            /// Clone the secret data. this should only be used for testing
+            pub fn clone_sk(&self) -> Vec<u8> {
+                let mut bytes = vec![0u8; Self::SIZE + 4];
+                bytes.copy_from_slice(self.0);
+                bytes
+            }
         }
 
         impl $signame {
@@ -403,6 +411,14 @@ macro_rules! sum_compact_kes {
                     .expect("Key size is valid");
 
                 pk0.hash_pair(&pk1)
+            }
+
+            #[cfg(feature = "sk_clone_enabled")]
+            /// Clone the secret data. this should only be used for testing
+            pub fn clone_sk(&self) -> Vec<u8> {
+                let mut bytes = vec![0u8; Self::SIZE + 4];
+                bytes.copy_from_slice(self.0);
+                bytes
             }
         }
 

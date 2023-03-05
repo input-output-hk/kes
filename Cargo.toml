@@ -28,6 +28,7 @@ hex = "0.4.3"
 [features]
 default = []
 serde_enabled = ["ed25519-dalek/serde", "serde", "serde_with"]
+sk_clone_enabled = []
 
 [[bench]]
 harness = false
