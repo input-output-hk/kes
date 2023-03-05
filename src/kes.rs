@@ -172,6 +172,18 @@ macro_rules! sum_kes {
                     rhs_pk,
                 }
             }
+
+            /// Convert KES sk to PublicKey
+            pub fn to_pk(&self) -> PublicKey {
+                let pk0 = PublicKey::from_bytes(
+                    &self.0[Self::SIZE - PUBLIC_KEY_SIZE * 2..Self::SIZE - PUBLIC_KEY_SIZE],
+                )
+                .expect("Key size is valid.");
+                let pk1 = PublicKey::from_bytes(&self.0[Self::SIZE - PUBLIC_KEY_SIZE..Self::SIZE])
+                    .expect("Key size is valid");
+
+                pk0.hash_pair(&pk1)
+            }
         }
 
         impl $signame {
@@ -379,6 +391,18 @@ macro_rules! sum_compact_kes {
 
                 let pk = PublicKey::from_bytes(&pk_bytes).expect("Won't fail as slice has size 32");
                 $signame { sigma, pk }
+            }
+
+            /// Convert KES key to public key
+            pub fn to_pk(&self) -> PublicKey {
+                let pk0 = PublicKey::from_bytes(
+                    &self.0[Self::SIZE - PUBLIC_KEY_SIZE * 2..Self::SIZE - PUBLIC_KEY_SIZE],
+                )
+                .expect("Key size is valid.");
+                let pk1 = PublicKey::from_bytes(&self.0[Self::SIZE - PUBLIC_KEY_SIZE..Self::SIZE])
+                    .expect("Key size is valid");
+
+                pk0.hash_pair(&pk1)
             }
         }
 
@@ -607,6 +631,21 @@ mod test {
         }
 
         assert_eq!(skey.get_period(), 15);
+    }
+
+    #[test]
+    fn test_to_pk() {
+        let mut skey_buffer = [0u8; Sum4CompactKes::SIZE + 4];
+        let mut seed = [0u8; Seed::SIZE];
+        let (skey, pkey) = Sum4CompactKes::keygen(&mut skey_buffer, &mut seed);
+
+        assert_eq!(skey.to_pk(), pkey);
+
+        let mut skey_buffer = [0u8; Sum4Kes::SIZE + 4];
+        let mut seed = [0u8; Seed::SIZE];
+        let (skey, pkey) = Sum4Kes::keygen(&mut skey_buffer, &mut seed);
+
+        assert_eq!(skey.to_pk(), pkey);
     }
 }
 
