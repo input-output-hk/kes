@@ -153,8 +153,8 @@ macro_rules! sum_kes {
                 let pk = pk_0.hash_pair(&pk_1);
 
                 // We write the pkeys to the main data.
-                in_slice[$sk::SIZE + 32..$sk::SIZE + 64].copy_from_slice(&pk_0.as_bytes());
-                in_slice[$sk::SIZE + 64..$sk::SIZE + 96].copy_from_slice(&pk_1.as_bytes());
+                in_slice[$sk::SIZE + 32..$sk::SIZE + 64].copy_from_slice(pk_0.as_bytes());
+                in_slice[$sk::SIZE + 64..$sk::SIZE + 96].copy_from_slice(pk_1.as_bytes());
 
                 pk
             }
@@ -376,8 +376,8 @@ macro_rules! sum_compact_kes {
                 let pk = pk_0.hash_pair(&pk_1);
 
                 // We write the keys to the main data.
-                in_slice[$sk::SIZE + 32..$sk::SIZE + 64].copy_from_slice(&pk_0.as_bytes());
-                in_slice[$sk::SIZE + 64..$sk::SIZE + 96].copy_from_slice(&pk_1.as_bytes());
+                in_slice[$sk::SIZE + 32..$sk::SIZE + 64].copy_from_slice(pk_0.as_bytes());
+                in_slice[$sk::SIZE + 64..$sk::SIZE + 96].copy_from_slice(pk_1.as_bytes());
 
                 pk
             }

@@ -7,12 +7,12 @@ license = "Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/input-output-hk/kes"
 homepage = "https://github.com/input-output-hk/kes"
-categories = [ "cryptography" ]
+categories = ["cryptography"]
 description = "Key Evolving Signature"
-keywords = [ "Crypto", "KES", "Ed25519", "MMM", "Sum" ]
+keywords = ["Crypto", "KES", "Ed25519", "MMM", "Sum"]
 
 [dependencies]
-ed25519-dalek = { version = "1" }
+ed25519-dalek = { version = "2" }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_with = { version = "2.0", optional = true }
 rand_core = "0.5"
