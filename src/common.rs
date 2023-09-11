@@ -3,6 +3,7 @@ use crate::errors::Error;
 use blake2::digest::{Update, VariableOutput};
 use blake2::VarBlake2b;
 use ed25519_dalek as ed25519;
+use std::convert::TryInto;
 
 #[cfg(feature = "serde_enabled")]
 use serde::{Deserialize, Serialize};
@@ -29,20 +30,24 @@ pub struct PublicKey(
 );
 
 impl PublicKey {
-    pub(crate) fn from_ed25519_publickey(public: &ed25519::PublicKey) -> Self {
+    pub(crate) fn from_ed25519_verifyingkey(public: &ed25519::VerifyingKey) -> Self {
         let mut out = [0u8; PUBLIC_KEY_SIZE];
         out.copy_from_slice(public.as_bytes());
         PublicKey(out)
     }
 
-    pub(crate) fn as_ed25519(&self) -> Result<ed25519::PublicKey, Error> {
-        ed25519::PublicKey::from_bytes(self.as_bytes())
-            .or(Err(Error::Ed25519InvalidCompressedFormat))
+    pub(crate) fn as_ed25519(&self) -> Result<ed25519::VerifyingKey, Error> {
+        ed25519::VerifyingKey::from_bytes(
+            self.as_bytes()
+                .try_into()
+                .expect("Won't fail as slice has size 32."),
+        )
+        .or(Err(Error::Ed25519InvalidCompressedFormat))
     }
 
     /// Return `Self` as its byte representation.
     pub fn as_bytes(&self) -> &[u8] {
-        &self.0
+        self.0.as_slice()
     }
 
     /// Tries to convert a slice of `bytes` as `Self`.
